@@ -1,27 +1,25 @@
-// ── 作品設定 ──────────────────────────────────────────────────
-const ARTWORKS = [
+var ARTWORKS = [
   {
     name: 'artwork-01',
     title: '世界は一つ',
     desc: '湯川秀樹',
-    url: 'calligraphy-ar.vercel.app',
+    url: 'https://your-website.com',
   },
 ]
 
-// ── UI 元素 ───────────────────────────────────────────────────
-const scanHint     = document.getElementById('scan-hint')
-const reticle      = document.getElementById('target-reticle')
-const overlay      = document.getElementById('ar-overlay')
-const artworkTitle = document.getElementById('artwork-title')
-const artworkDesc  = document.getElementById('artwork-desc')
-const artworkLink  = document.getElementById('artwork-link')
+var scanHint = document.getElementById('scan-hint')
+var reticle = document.getElementById('target-reticle')
+var overlay = document.getElementById('ar-overlay')
+var artworkTitle = document.getElementById('artwork-title')
+var artworkDesc = document.getElementById('artwork-desc')
+var artworkLink = document.getElementById('artwork-link')
 
 function showOverlay(artwork) {
   artworkTitle.textContent = artwork.title
-  artworkDesc.textContent  = artwork.desc
-  artworkLink.href         = artwork.url
+  artworkDesc.textContent = artwork.desc
+  artworkLink.href = artwork.url
   overlay.classList.add('visible')
-  scanHint.style.opacity   = '0'
+  scanHint.style.opacity = '0'
   reticle.classList.add('found')
 }
 
@@ -31,77 +29,80 @@ function hideOverlay() {
   reticle.classList.remove('found')
 }
 
-// ── Canvas 全螢幕 ─────────────────────────────────────────────
-function resizeCanvas() {
-  const canvas = document.getElementById('xr-canvas')
-  canvas.width  = window.innerWidth
-  canvas.height = window.innerHeight
-}
-window.addEventListener('resize', resizeCanvas)
-resizeCanvas()
-
-// ── 8th Wall 初始化 ───────────────────────────────────────────
-function onXrLoaded() {
-  const fetches = ARTWORKS.map((a) =>
-    fetch('./image-targets/' + a.name + '/' + a.name + '.json')
-      .then(function(r) {
-        if (!r.ok) throw new Error('找不到: image-targets/' + a.name + '/' + a.name + '.json')
-        return r.json()
-      })
-  )
-
-  Promise.all(fetches).then(function(targets) {
-    XR8.XrController.configure({
-      imageTargetData: targets,
-      disableWorldTracking: true,
-    })
-
-    XR8.addCameraPipelineModules([
-      XR8.GlTextureRenderer.pipelineModule(),
-      XR8.XrController.pipelineModule(),
-      buildImageTargetModule(),
-    ])
-
-    XR8.run({ canvas: document.getElementById('xr-canvas') })
-    reticle.style.display = 'block'
-
-  }).catch(function(err) {
-    console.error('載入失敗:', err)
-    document.getElementById('scan-hint').innerHTML =
-      '<p style="color:red;padding:20px;font-size:14px;">錯誤：' + err.message + '</p>'
-  })
-}
-
-// ── 圖像辨識事件 ──────────────────────────────────────────────
 function buildImageTargetModule() {
   return {
     name: 'calligraphy-ar',
+    onAttach: function() {
+      reticle.style.display = 'block'
+    },
     listeners: [
       {
         event: 'reality.imagefound',
         process: function(e) {
-          var artwork = ARTWORKS.find(function(a) { return a.name === e.detail.name })
-          if (artwork) showOverlay(artwork)
+          for (var i = 0; i < ARTWORKS.length; i++) {
+            if (ARTWORKS[i].name === e.detail.name) {
+              showOverlay(ARTWORKS[i])
+              break
+            }
+          }
         },
       },
       {
         event: 'reality.imageupdated',
         process: function(e) {
-          var artwork = ARTWORKS.find(function(a) { return a.name === e.detail.name })
-          if (artwork && !overlay.classList.contains('visible')) showOverlay(artwork)
+          if (overlay.classList.contains('visible')) return
+          for (var i = 0; i < ARTWORKS.length; i++) {
+            if (ARTWORKS[i].name === e.detail.name) {
+              showOverlay(ARTWORKS[i])
+              break
+            }
+          }
         },
       },
       {
         event: 'reality.imagelost',
-        process: function() { hideOverlay() },
+        process: function() {
+          hideOverlay()
+        },
       },
     ],
   }
 }
 
-// ── 啟動 ──────────────────────────────────────────────────────
-if (window.XR8) {
-  onXrLoaded()
-} else {
-  window.addEventListener('xrloaded', onXrLoaded, { once: true })
+var targetDataLoaded = []
+
+var fetchPromises = ARTWORKS.map(function(a) {
+  return fetch('./image-targets/' + a.name + '/' + a.name + '.json')
+    .then(function(r) {
+      if (!r.ok) throw new Error('找不到 JSON: ' + a.name)
+      return r.json()
+    })
+})
+
+Promise.all(fetchPromises)
+  .then(function(results) {
+    targetDataLoaded = results
+  })
+  .catch(function(err) {
+    document.getElementById('scan-hint').innerHTML =
+      '<p style="color:red;padding:16px;font-size:14px;">錯誤：' + err.message + '</p>'
+  })
+
+function onxrloaded() {
+  if (targetDataLoaded.length === 0) {
+    setTimeout(onxrloaded, 200)
+    return
+  }
+  XR8.XrController.configure({
+    imageTargetData: targetDataLoaded,
+    disableWorldTracking: true,
+  })
+  XR8.addCameraPipelineModules([
+    XR8.GlTextureRenderer.pipelineModule(),
+    XR8.XrController.pipelineModule(),
+    buildImageTargetModule(),
+  ])
+  XR8.run({ canvas: document.getElementById('xr-canvas') })
 }
+
+window.XR8 ? onxrloaded() : window.addEventListener('xrloaded', onxrloaded)

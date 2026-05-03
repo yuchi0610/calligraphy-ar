@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>書法 AR 體驗</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+
+      #scan-hint {
+        position: fixed;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: #fff;
+        z-index: 100;
+        pointer-events: none;
+        transition: opacity 0.5s;
+      }
+      #scan-hint .icon { font-size: 52px; margin-bottom: 12px; animation: float 2s ease-in-out infinite; }
+      #scan-hint p { font-size: 16px; opacity: 0.85; font-family: sans-serif; }
+      @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-8px); }
+      }
+
+      #ar-overlay {
+        display: none;
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        padding: 0 24px 48px;
+        z-index: 200;
+        flex-direction: column;
+        align-items: center;
+      }
+      #ar-overlay.visible { display: flex; }
+
+      .ar-card {
+        width: 100%; max-width: 400px;
+        background: rgba(255,255,255,0.12);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255,255,255,0.25);
+        border-radius: 20px;
+        padding: 20px 24px;
+        color: #fff;
+        font-family: sans-serif;
+        animation: slideUp 0.4s ease;
+      }
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      .ar-card h2 { font-size: 16px; font-weight: 500; margin-bottom: 6px; opacity: 0.7; }
+      .ar-card h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+      .ar-card p  { font-size: 13px; opacity: 0.6; margin-bottom: 16px; }
+
+      .ar-btn {
+        display: block; width: 100%; padding: 14px;
+        border-radius: 12px; border: none;
+        background: #fff; color: #111;
+        font-size: 16px; font-weight: 600;
+        text-align: center; text-decoration: none;
+        cursor: pointer;
+      }
+
+      #target-reticle {
+        display: none;
+        position: fixed;
+        border: 2px solid rgba(255,255,255,0.6);
+        border-radius: 12px;
+        width: 200px; height: 200px;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -60%);
+        z-index: 50;
+        pointer-events: none;
+        animation: scanPulse 1.5s ease-in-out infinite;
+      }
+      #target-reticle.found { border-color: #4eff91; animation: none; }
+      @keyframes scanPulse {
+        0%, 100% { border-color: rgba(255,255,255,0.3); }
+        50%       { border-color: rgba(255,255,255,0.9); }
+      }
+      .corner { position: absolute; width: 14px; height: 14px; border-color: inherit; border-style: solid; }
+      .corner.tl { top:-2px; left:-2px;   border-width: 3px 0 0 3px; border-radius: 4px 0 0 0; }
+      .corner.tr { top:-2px; right:-2px;  border-width: 3px 3px 0 0; border-radius: 0 4px 0 0; }
+      .corner.bl { bottom:-2px; left:-2px;  border-width: 0 0 3px 3px; border-radius: 0 0 0 4px; }
+      .corner.br { bottom:-2px; right:-2px; border-width: 0 3px 3px 0; border-radius: 0 0 4px 0; }
+    </style>
+  </head>
+  <body>
+    <div id="scan-hint">
+      <div class="icon">📷</div>
+      <p>將相機對準書法作品</p>
+    </div>
+
+    <div id="target-reticle">
+      <div class="corner tl"></div>
+      <div class="corner tr"></div>
+      <div class="corner bl"></div>
+      <div class="corner br"></div>
+    </div>
+
+    <div i

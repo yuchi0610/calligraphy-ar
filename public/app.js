@@ -1,15 +1,11 @@
 // ── 作品設定 ──────────────────────────────────────────────────
-// name: 對應 image-targets 資料夾名稱
-// title, desc: 顯示在卡片上的文字
-// url: 點擊按鈕後開啟的網頁
 const ARTWORKS = [
   {
     name: 'artwork-01',
     title: '世界は一つ',
     desc: '湯川秀樹',
-    url: 'calligraphy-ar.vercel.app',  // ← 改成你的網址
+    url: 'calligraphy-ar.vercel.app',
   },
-  // 新增更多作品：複製上面的格式貼在這裡
 ]
 
 // ── UI 元素 ───────────────────────────────────────────────────
@@ -35,66 +31,69 @@ function hideOverlay() {
   reticle.classList.remove('found')
 }
 
+// ── Canvas 全螢幕 ─────────────────────────────────────────────
+function resizeCanvas() {
+  const canvas = document.getElementById('xr-canvas')
+  canvas.width  = window.innerWidth
+  canvas.height = window.innerHeight
+}
+window.addEventListener('resize', resizeCanvas)
+resizeCanvas()
+
 // ── 8th Wall 初始化 ───────────────────────────────────────────
 function onXrLoaded() {
-  // 載入所有 image target JSON
   const fetches = ARTWORKS.map((a) =>
-    fetch(`./image-targets/${a.name}/${a.name}.json`).then((r) => r.json())
+    fetch('./image-targets/' + a.name + '/' + a.name + '.json')
+      .then(function(r) {
+        if (!r.ok) throw new Error('找不到: image-targets/' + a.name + '/' + a.name + '.json')
+        return r.json()
+      })
   )
 
-  Promise.all(fetches).then((targets) => {
+  Promise.all(fetches).then(function(targets) {
     XR8.XrController.configure({
       imageTargetData: targets,
-      disableWorldTracking: true,  // 純圖像辨識，省電
+      disableWorldTracking: true,
     })
 
     XR8.addCameraPipelineModules([
       XR8.GlTextureRenderer.pipelineModule(),
       XR8.XrController.pipelineModule(),
-      XRExtras.FullWindowCanvas.pipelineModule(),
-      XRExtras.Loading.pipelineModule(),
-      XRExtras.RuntimeError.pipelineModule(),
       buildImageTargetModule(),
     ])
 
     XR8.run({ canvas: document.getElementById('xr-canvas') })
-  }).catch((err) => {
-    console.error('載入 image target 失敗:', err)
-    alert('載入失敗，請檢查 image-targets 資料夾是否正確')
+    reticle.style.display = 'block'
+
+  }).catch(function(err) {
+    console.error('載入失敗:', err)
+    document.getElementById('scan-hint').innerHTML =
+      '<p style="color:red;padding:20px;font-size:14px;">錯誤：' + err.message + '</p>'
   })
 }
 
-// ── 圖像辨識模組 ──────────────────────────────────────────────
+// ── 圖像辨識事件 ──────────────────────────────────────────────
 function buildImageTargetModule() {
   return {
     name: 'calligraphy-ar',
-
-    onAttach() {
-      reticle.style.display = 'block'
-    },
-
     listeners: [
       {
         event: 'reality.imagefound',
-        process({ detail }) {
-          const artwork = ARTWORKS.find((a) => a.name === detail.name)
+        process: function(e) {
+          var artwork = ARTWORKS.find(function(a) { return a.name === e.detail.name })
           if (artwork) showOverlay(artwork)
         },
       },
       {
         event: 'reality.imageupdated',
-        process({ detail }) {
-          const artwork = ARTWORKS.find((a) => a.name === detail.name)
-          if (artwork && !overlay.classList.contains('visible')) {
-            showOverlay(artwork)
-          }
+        process: function(e) {
+          var artwork = ARTWORKS.find(function(a) { return a.name === e.detail.name })
+          if (artwork && !overlay.classList.contains('visible')) showOverlay(artwork)
         },
       },
       {
         event: 'reality.imagelost',
-        process() {
-          hideOverlay()
-        },
+        process: function() { hideOverlay() },
       },
     ],
   }

@@ -1,9 +1,7 @@
 // ── 設定 ──────────────────────────────────────────────────────
 var ARTWORK_NAME = 'artwork-01'
-var STORY_URL = 'https://example.com'
+var STORY_URL = 'https://calligraphy-ar.vercel.app/'
 var YUKAWA_IMAGE = './yukawa.png'
-var APPEAR_MIN = 4
-var APPEAR_MAX = 8
 var TRIGGER_DISTANCE = 1.5
 
 var DIALOGS = [
@@ -16,7 +14,6 @@ var DIALOGS = [
 // ── 狀態 ──────────────────────────────────────────────────────
 var state = {
   artworkFound: false,
-  yukawaPlaced: false,
   dialogStarted: false,
   dialogIndex: 0,
   typing: false,
@@ -70,202 +67,172 @@ function showNextDialog() {
 document.addEventListener('click', function(e) {
   if (e.target.id === 'start-btn' || e.target.id === 'enter-btn') return
   if (state.dialogStarted) { showNextDialog(); return }
-  var video = document.querySelector('video')
-  if (video && video.srcObject) {
-    var track = video.srcObject.getVideoTracks()[0]
-    if (track && track.getCapabilities) {
-      var caps = track.getCapabilities()
-      if (caps.focusMode) {
-        track.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] })
-      }
-    }
-  }
 })
 
-// ── Three.js 場景 ─────────────────────────────────────────────
-var threeRenderer, threeScene, threeCamera
-var yukawaMesh = null
-var glowMesh = null
-var yukawaPos = { x: 0, z: 0 }
-var cameraPos = { x: 0, y: 0, z: 0 }
-var cameraQuat = { x: 0, y: 0, z: 0, w: 1 }
-var cameraProjection = null
+// ── Three.js（純 CSS2D 版本，不依賴 SLAM 相機矩陣） ──────────
+// 策略：不用 Three.js 的 3D 世界座標
+// 改用手機的 DeviceOrientation 控制「湯川」的螢幕位置
+// 讓他看起來像站在現實空間裡
 
-function buildMeshes() {
-  // 先放紅色方塊（確保一定有東西顯示）
-  var boxGeo = new THREE.BoxGeometry(0.8, 1.7, 0.1)
-  var boxMat = new THREE.MeshBasicMaterial({ color: 0xff3300 })
-  yukawaMesh = new THREE.Mesh(boxGeo, boxMat)
-  yukawaMesh.visible = false
-  threeScene.add(yukawaMesh)
+var yukawaEl = null  // HTML 元素版的湯川
+var glowEl = null
 
-  // 地板光暈
-  var gGeo = new THREE.CircleGeometry(0.7, 32)
-  var gMat = new THREE.MeshBasicMaterial({
-    color: 0xffd764, transparent: true,
-    opacity: 0.18, side: THREE.DoubleSide, depthWrite: false,
+function createYukawaHTML() {
+  // 建立湯川 HTML 元素
+  var container = document.createElement('div')
+  container.id = 'yukawa-container'
+  container.style.cssText = [
+    'position:fixed',
+    'top:0', 'left:0', 'width:100%', 'height:100%',
+    'z-index:50',
+    'pointer-events:none',
+    'display:none',
+    'overflow:hidden',
+  ].join(';')
+
+  // 光暈
+  glowEl = document.createElement('div')
+  glowEl.style.cssText = [
+    'position:absolute',
+    'bottom:15%',
+    'left:50%',
+    'transform:translateX(-50%)',
+    'width:120px', 'height:30px',
+    'background:radial-gradient(ellipse, rgba(255,215,100,0.4) 0%, transparent 70%)',
+    'border-radius:50%',
+    'animation:glowPulse 2s ease-in-out infinite',
+  ].join(';')
+
+  // 湯川圖片
+  yukawaEl = document.createElement('img')
+  yukawaEl.src = YUKAWA_IMAGE
+  yukawaEl.style.cssText = [
+    'position:absolute',
+    'bottom:15%',
+    'left:50%',
+    'transform:translateX(-50%)',
+    'height:55vh',
+    'width:auto',
+    'object-fit:contain',
+    'filter:drop-shadow(0 0 20px rgba(255,215,100,0.3))',
+    'animation:yukawaFloat 3s ease-in-out infinite',
+  ].join(';')
+
+  yukawaEl.onerror = function() {
+    // 圖片載入失敗，改用紅色方塊
+    yukawaEl.style.display = 'none'
+    var box = document.createElement('div')
+    box.style.cssText = [
+      'position:absolute',
+      'bottom:15%', 'left:50%',
+      'transform:translateX(-50%)',
+      'width:80px', 'height:160px',
+      'background:#ff3300',
+      'border:2px solid #fff',
+    ].join(';')
+    container.appendChild(box)
+  }
+
+  container.appendChild(glowEl)
+  container.appendChild(yukawaEl)
+  document.body.appendChild(container)
+
+  // 加 CSS 動畫
+  var style = document.createElement('style')
+  style.innerHTML = [
+    '@keyframes yukawaFloat{',
+    '  0%,100%{transform:translateX(-50%) translateY(0)}',
+    '  50%{transform:translateX(-50%) translateY(-8px)}',
+    '}',
+    '@keyframes glowPulse{',
+    '  0%,100%{opacity:0.4;transform:translateX(-50%) scaleX(1)}',
+    '  50%{opacity:0.9;transform:translateX(-50%) scaleX(1.2)}',
+    '}',
+  ].join('')
+  document.head.appendChild(style)
+
+  return container
+}
+
+var yukawaContainer = null
+var deviceAlpha = 0  // 手機朝向角度
+
+function setupDeviceOrientation() {
+  window.addEventListener('deviceorientation', function(e) {
+    deviceAlpha = e.alpha || 0  // 0-360 度，水平旋轉
   })
-  glowMesh = new THREE.Mesh(gGeo, gMat)
-  glowMesh.rotation.x = -Math.PI / 2
-  glowMesh.visible = false
-  threeScene.add(glowMesh)
-
-  // 嘗試載入真實圖片，成功就替換方塊
-  var loader = new THREE.TextureLoader()
-  loader.load(
-    YUKAWA_IMAGE,
-    function(tex) {
-      var aspect = tex.image.width / tex.image.height
-      var h = 1.7
-      var geo = new THREE.PlaneGeometry(h * aspect, h)
-      var mat = new THREE.MeshBasicMaterial({
-        map: tex, transparent: true,
-        side: THREE.DoubleSide, depthWrite: false,
-      })
-      var newMesh = new THREE.Mesh(geo, mat)
-      newMesh.visible = yukawaMesh.visible
-      newMesh.position.copy(yukawaMesh.position)
-      threeScene.remove(yukawaMesh)
-      yukawaMesh = newMesh
-      threeScene.add(yukawaMesh)
-    },
-    undefined,
-    function() {
-      // 圖片載入失敗，繼續用紅色方塊
-      console.log('yukawa.png 載入失敗，使用方塊替代')
-    }
-  )
 }
 
-function initThree() {
-  var canvas = document.getElementById('three-canvas')
-  var w = window.innerWidth
-  var h = window.innerHeight
-  var dpr = window.devicePixelRatio || 1
+// 湯川「站在」展場某個方向
+var yukawaDirection = 0  // 度數，相對於辨識當下手機朝向
+var baseAlpha = null     // 辨識當下的手機朝向
 
-  canvas.width = w * dpr
-  canvas.height = h * dpr
-  canvas.style.width = w + 'px'
-  canvas.style.height = h + 'px'
-
-  threeRenderer = new THREE.WebGLRenderer({
-    canvas: canvas,
-    alpha: true,
-    antialias: true,
-  })
-  threeRenderer.setPixelRatio(dpr)
-  threeRenderer.setSize(w, h)
-  threeRenderer.setClearColor(0x000000, 0)
-
-  threeScene = new THREE.Scene()
-  threeCamera = new THREE.PerspectiveCamera(60, w / h, 0.01, 1000)
-  threeScene.add(new THREE.AmbientLight(0xffffff, 2))
-
-  buildMeshes()
-  requestAnimationFrame(renderLoop)
-}
-
-function renderLoop() {
-  requestAnimationFrame(renderLoop)
-
-  threeCamera.position.set(cameraPos.x, cameraPos.y, cameraPos.z)
-  threeCamera.quaternion.set(cameraQuat.x, cameraQuat.y, cameraQuat.z, cameraQuat.w)
-  if (cameraProjection) {
-    threeCamera.projectionMatrix.fromArray(cameraProjection)
-    threeCamera.projectionMatrixInverse.copy(threeCamera.projectionMatrix).invert()
-  }
-
-  if (glowMesh && glowMesh.visible) {
-    glowMesh.material.opacity = 0.12 + Math.sin(Date.now() * 0.003) * 0.07
-  }
-
-  if (yukawaMesh && yukawaMesh.visible) {
-    yukawaMesh.lookAt(cameraPos.x, yukawaMesh.position.y, cameraPos.z)
-  }
-
-  threeRenderer.render(threeScene, threeCamera)
-}
-
-function onResize() {
-  var w = window.innerWidth
-  var h = window.innerHeight
-  var dpr = window.devicePixelRatio || 1
-  var canvas = document.getElementById('three-canvas')
-  canvas.width = w * dpr
-  canvas.height = h * dpr
-  canvas.style.width = w + 'px'
-  canvas.style.height = h + 'px'
-  if (threeRenderer) threeRenderer.setSize(w, h)
-  if (threeCamera) {
-    threeCamera.aspect = w / h
-    threeCamera.updateProjectionMatrix()
-  }
-}
-
-// ── XR8 相機姿態同步 ──────────────────────────────────────────
-function cameraSyncModule() {
-  return {
-    name: 'camera-sync',
-    onUpdate: function(args) {
-      if (!args.processCpuResult || !args.processCpuResult.reality) return
-      var r = args.processCpuResult.reality
-      if (r.position) {
-        cameraPos.x = r.position.x
-        cameraPos.y = r.position.y
-        cameraPos.z = r.position.z
-      }
-      if (r.rotation) {
-        cameraQuat.x = r.rotation.x
-        cameraQuat.y = r.rotation.y
-        cameraQuat.z = r.rotation.z
-        cameraQuat.w = r.rotation.w
-      }
-      if (r.intrinsics) {
-        cameraProjection = r.intrinsics
-      }
-    },
-  }
-}
-
-// ── 放置湯川 ─────────────────────────────────────────────────
 function placeYukawa() {
-  if (!yukawaMesh) { setTimeout(placeYukawa, 300); return }
+  if (!yukawaContainer) return
 
-  // 測試：直接放在相機正前方 2 公尺
-  yukawaPos.x = 0
-  yukawaPos.z = -2
+  // 記錄辨識當下的朝向作為基準
+  baseAlpha = deviceAlpha
 
-  yukawaMesh.position.set(0, 0, -2)
-  yukawaMesh.visible = true
+  // 隨機選一個方向（左右各 90 度內，讓使用者需要轉身）
+  var offset = (Math.random() > 0.5 ? 1 : -1) * (60 + Math.random() * 60)
+  yukawaDirection = offset
 
-  if (glowMesh) {
-    glowMesh.position.set(yukawaPos.x, 0.01, yukawaPos.z)
-    glowMesh.visible = true
-  }
+  yukawaContainer.style.display = 'block'
+  state.artworkFound = true
 
-  state.yukawaPlaced = true
   scanHint.style.display = 'none'
   foundHint.style.display = 'block'
-
   setTimeout(function() {
     foundHint.style.transition = 'opacity 1s'
     foundHint.style.opacity = '0'
     setTimeout(function() { foundHint.style.display = 'none' }, 1000)
   }, 4000)
 
-  // 偵測靠近
-  var check = setInterval(function() {
-    if (state.dialogStarted) { clearInterval(check); return }
-    var dx = cameraPos.x - yukawaPos.x
-    var dz = cameraPos.z - yukawaPos.z
-    if (Math.sqrt(dx * dx + dz * dz) < TRIGGER_DISTANCE) {
-      clearInterval(check)
-      state.dialogStarted = true
+  // 開始更新湯川位置
+  startPositionUpdate()
+}
+
+function startPositionUpdate() {
+  var triggered = false
+
+  setInterval(function() {
+    if (!yukawaContainer || baseAlpha === null) return
+
+    // 計算手機目前和湯川方向的角度差
+    var diff = deviceAlpha - baseAlpha - yukawaDirection
+    // 正規化到 -180 ~ 180
+    while (diff > 180) diff -= 360
+    while (diff < -180) diff += 360
+
+    // 把角度差轉成螢幕 X 位置
+    // diff = 0 → 正中間
+    // diff = ±90 → 螢幕邊緣外
+    var screenX = 50 - diff * 0.8  // 百分比
+
+    // 距離感：diff 越大，湯川越小
+    var absDiff = Math.abs(diff)
+    var scale = Math.max(0.3, 1 - absDiff / 150)
+    var opacity = Math.max(0.1, 1 - absDiff / 120)
+
+    if (yukawaEl) {
+      yukawaEl.style.left = screenX + '%'
+      yukawaEl.style.transform = 'translateX(-50%) scale(' + scale + ')'
+      yukawaEl.style.opacity = opacity
+    }
+    if (glowEl) {
+      glowEl.style.left = screenX + '%'
+      glowEl.style.opacity = opacity * 0.6
+    }
+
+    // 夠近（diff < 20 度）觸發對話
+    if (!triggered && absDiff < 20) {
+      triggered = true
       if (navigator.vibrate) navigator.vibrate([100, 50, 100])
       dialogBox.classList.add('visible')
+      state.dialogStarted = true
       showNextDialog()
     }
-  }, 400)
+  }, 50)
 }
 
 // ── Image Target 模組 ─────────────────────────────────────────
@@ -277,9 +244,8 @@ function buildImageTargetModule() {
         event: 'reality.imagefound',
         process: function(e) {
           if (state.artworkFound || e.detail.name !== ARTWORK_NAME) return
-          state.artworkFound = true
           if (navigator.vibrate) navigator.vibrate(200)
-          setTimeout(placeYukawa, 1500)
+          setTimeout(placeYukawa, 800)
         },
       },
     ],
@@ -304,13 +270,12 @@ function onxrloaded() {
 
   XR8.XrController.configure({
     imageTargetData: targetDataLoaded,
-    disableWorldTracking: false,
+    disableWorldTracking: true,
   })
 
   XR8.addCameraPipelineModules([
     XR8.GlTextureRenderer.pipelineModule(),
     XR8.XrController.pipelineModule(),
-    cameraSyncModule(),
     buildImageTargetModule(),
   ])
 
@@ -318,7 +283,7 @@ function onxrloaded() {
 }
 
 // ── Canvas 尺寸 ───────────────────────────────────────────────
-function resizeXrCanvas() {
+function resizeCanvas() {
   var canvas = document.getElementById('xr-canvas')
   var dpr = window.devicePixelRatio || 1
   canvas.width = window.innerWidth * dpr
@@ -332,15 +297,13 @@ function startAR() {
   document.getElementById('start-screen').style.display = 'none'
   scanHint.style.display = 'block'
 
-  resizeXrCanvas()
-  initThree()
+  yukawaContainer = createYukawaHTML()
+  setupDeviceOrientation()
 
-  window.addEventListener('resize', function() {
-    resizeXrCanvas()
-    onResize()
-  })
+  resizeCanvas()
+  window.addEventListener('resize', resizeCanvas)
   screen.orientation && screen.orientation.addEventListener('change', function() {
-    setTimeout(function() { resizeXrCanvas(); onResize() }, 200)
+    setTimeout(resizeCanvas, 200)
   })
 
   window.XR8 ? onxrloaded() : window.addEventListener('xrloaded', onxrloaded)

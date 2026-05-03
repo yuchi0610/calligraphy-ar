@@ -1,351 +1,164 @@
-// ── 設定 ──────────────────────────────────────────────────────
-var ARTWORK_NAME = 'artwork-01'
-var STORY_URL = 'https://calligraphy-ar.vercel.app/'
-var YUKAWA_IMAGE = './yukawa.png'
-var APPEAR_MIN = 4
-var APPEAR_MAX = 8
-var TRIGGER_DISTANCE = 1.5
+<!DOCTYPE html>
+<html lang="zh-TW">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+    <title>核去核從：核能背後的和平抉擇</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&display=swap');
 
-var DIALOGS = [
-  '……你來了。我在這裡等了很久。',
-  '這幅字，是我晚年寫下的。世界是一體的——不論是原子，還是人心。',
-  '當年我們劈開了原子，卻沒能劈開人與人之間的隔閡。',
-  '現在，這個選擇交給你了。你願意繼續往下看嗎？',
-]
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
 
-// ── 狀態 ──────────────────────────────────────────────────────
-var state = {
-  artworkFound: false,
-  yukawaPlaced: false,
-  dialogStarted: false,
-  dialogIndex: 0,
-  typing: false,
-}
-
-// ── UI ────────────────────────────────────────────────────────
-var scanHint   = document.getElementById('scan-hint')
-var foundHint  = document.getElementById('found-hint')
-var dialogBox  = document.getElementById('dialog-box')
-var dialogText = document.getElementById('dialog-text')
-var dialogNext = document.getElementById('dialog-next')
-var enterBtn   = document.getElementById('enter-btn')
-
-// ── 對話系統 ──────────────────────────────────────────────────
-var typingTimer = null
-
-function typeText(text) {
-  state.typing = true
-  dialogNext.style.display = 'none'
-  dialogText.innerHTML = ''
-  var i = 0
-  typingTimer = setInterval(function() {
-    if (i < text.length) {
-      dialogText.innerHTML = text.slice(0, i + 1) + '<span class="dialog-cursor"></span>'
-      i++
-    } else {
-      clearInterval(typingTimer)
-      dialogText.innerHTML = text
-      state.typing = false
-      dialogNext.style.display = 'block'
-    }
-  }, 65)
-}
-
-function showNextDialog() {
-  if (state.typing) {
-    clearInterval(typingTimer)
-    dialogText.innerHTML = DIALOGS[state.dialogIndex - 1] || ''
-    state.typing = false
-    dialogNext.style.display = 'block'
-    return
-  }
-  if (state.dialogIndex >= DIALOGS.length) {
-    dialogBox.classList.remove('visible')
-    enterBtn.style.display = 'block'
-    return
-  }
-  typeText(DIALOGS[state.dialogIndex++])
-}
-
-document.addEventListener('click', function(e) {
-  if (e.target.id === 'start-btn' || e.target.id === 'enter-btn') return
-  if (state.dialogStarted) { showNextDialog(); return }
-  var video = document.querySelector('video')
-  if (video && video.srcObject) {
-    var track = video.srcObject.getVideoTracks()[0]
-    if (track && track.getCapabilities) {
-      var caps = track.getCapabilities()
-      if (caps.focusMode) {
-        track.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] })
+      #xr-canvas {
+        position: fixed; top: 0; left: 0;
+        width: 100% !important; height: 100% !important;
+        z-index: 0;
       }
-    }
-  }
-})
 
-// ── Three.js 場景 ─────────────────────────────────────────────
-var threeRenderer, threeScene, threeCamera
-var yukawaMesh = null
-var glowMesh = null
-var yukawaPos = { x: 0, z: 0 }
-var cameraPos = { x: 0, y: 0, z: 0 }
-var cameraQuat = { x: 0, y: 0, z: 0, w: 1 }
-var cameraProjection = null
-
-function buildMeshes() {
-  // 先放紅色方塊確保一定有東西
-  var boxGeo = new THREE.BoxGeometry(0.8, 1.7, 0.1)
-  var boxMat = new THREE.MeshBasicMaterial({ color: 0xff3300 })
-  yukawaMesh = new THREE.Mesh(boxGeo, boxMat)
-  yukawaMesh.visible = false
-  threeScene.add(yukawaMesh)
-
-  // 地板光暈
-  var gGeo = new THREE.CircleGeometry(0.7, 32)
-  var gMat = new THREE.MeshBasicMaterial({
-    color: 0xffd764, transparent: true,
-    opacity: 0.18, side: THREE.DoubleSide, depthWrite: false,
-  })
-  glowMesh = new THREE.Mesh(gGeo, gMat)
-  glowMesh.rotation.x = -Math.PI / 2
-  glowMesh.visible = false
-  threeScene.add(glowMesh)
-
-  // 嘗試載入真實圖片
-  var loader = new THREE.TextureLoader()
-  loader.load(
-    YUKAWA_IMAGE,
-    function(tex) {
-      var aspect = tex.image.width / tex.image.height
-      var h = 1.7
-      var geo = new THREE.PlaneGeometry(h * aspect, h)
-      var mat = new THREE.MeshBasicMaterial({
-        map: tex, transparent: true,
-        side: THREE.DoubleSide, depthWrite: false,
-      })
-      var newMesh = new THREE.Mesh(geo, mat)
-      newMesh.visible = yukawaMesh.visible
-      newMesh.position.copy(yukawaMesh.position)
-      threeScene.remove(yukawaMesh)
-      yukawaMesh = newMesh
-      threeScene.add(yukawaMesh)
-    },
-    undefined,
-    function() { console.log('yukawa.png 載入失敗，使用方塊') }
-  )
-}
-
-function initThree() {
-  var canvas = document.getElementById('three-canvas')
-  var w = window.innerWidth
-  var h = window.innerHeight
-  var dpr = window.devicePixelRatio || 1
-
-  canvas.width = w * dpr
-  canvas.height = h * dpr
-  canvas.style.width = w + 'px'
-  canvas.style.height = h + 'px'
-
-  threeRenderer = new THREE.WebGLRenderer({
-    canvas: canvas,
-    alpha: true,
-    antialias: true,
-    premultipliedAlpha: false,
-  })
-  threeRenderer.setPixelRatio(dpr)
-  threeRenderer.setSize(w, h)
-  threeRenderer.setClearColor(0x000000, 0)
-  threeRenderer.autoClearColor = true
-
-  threeScene = new THREE.Scene()
-  threeCamera = new THREE.PerspectiveCamera(60, w / h, 0.01, 1000)
-  threeScene.add(new THREE.AmbientLight(0xffffff, 2))
-
-  buildMeshes()
-  requestAnimationFrame(renderLoop)
-}
-
-function renderLoop() {
-  requestAnimationFrame(renderLoop)
-
-  threeRenderer.clear()
-
-  threeCamera.position.set(cameraPos.x, cameraPos.y, cameraPos.z)
-  threeCamera.quaternion.set(cameraQuat.x, cameraQuat.y, cameraQuat.z, cameraQuat.w)
-  if (cameraProjection) {
-    threeCamera.projectionMatrix.fromArray(cameraProjection)
-    threeCamera.projectionMatrixInverse.copy(threeCamera.projectionMatrix).invert()
-  }
-
-  if (glowMesh && glowMesh.visible) {
-    glowMesh.material.opacity = 0.12 + Math.sin(Date.now() * 0.003) * 0.07
-  }
-
-  if (yukawaMesh && yukawaMesh.visible) {
-    yukawaMesh.lookAt(cameraPos.x, yukawaMesh.position.y, cameraPos.z)
-  }
-
-  threeRenderer.render(threeScene, threeCamera)
-}
-
-function onResize() {
-  var w = window.innerWidth
-  var h = window.innerHeight
-  var dpr = window.devicePixelRatio || 1
-  var canvas = document.getElementById('three-canvas')
-  canvas.width = w * dpr
-  canvas.height = h * dpr
-  canvas.style.width = w + 'px'
-  canvas.style.height = h + 'px'
-  if (threeRenderer) threeRenderer.setSize(w, h)
-  if (threeCamera) {
-    threeCamera.aspect = w / h
-    threeCamera.updateProjectionMatrix()
-  }
-}
-
-// ── XR8 相機姿態同步 ──────────────────────────────────────────
-function cameraSyncModule() {
-  return {
-    name: 'camera-sync',
-    onUpdate: function(args) {
-      if (!args.processCpuResult || !args.processCpuResult.reality) return
-      var r = args.processCpuResult.reality
-      if (r.position) {
-        cameraPos.x = r.position.x
-        cameraPos.y = r.position.y
-        cameraPos.z = r.position.z
+      #three-canvas {
+        position: fixed; top: 0; left: 0;
+        width: 100% !important; height: 100% !important;
+        z-index: 1;
+        pointer-events: none;
       }
-      if (r.rotation) {
-        cameraQuat.x = r.rotation.x
-        cameraQuat.y = r.rotation.y
-        cameraQuat.z = r.rotation.z
-        cameraQuat.w = r.rotation.w
+
+      #start-screen {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: #080808;
+        z-index: 500;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        font-family: 'Noto Serif TC', serif;
+        color: #e8e0d0; text-align: center; padding: 40px;
       }
-      if (r.intrinsics) {
-        cameraProjection = r.intrinsics
+      #start-screen .label {
+        font-size: 11px; letter-spacing: 0.3em;
+        opacity: 0.35; margin-bottom: 24px; font-family: sans-serif;
       }
-    },
-  }
-}
+      #start-screen h1 {
+        font-size: 19px; font-weight: 700;
+        line-height: 1.8; margin-bottom: 48px;
+      }
+      #start-btn {
+        padding: 14px 44px; border-radius: 2px;
+        border: 1px solid rgba(232,224,208,0.3);
+        background: transparent; color: #e8e0d0;
+        font-size: 14px; letter-spacing: 0.2em;
+        font-family: 'Noto Serif TC', serif; cursor: pointer;
+      }
+      #start-btn:active { background: rgba(232,224,208,0.1); }
 
-// ── 放置湯川 ─────────────────────────────────────────────────
-function placeYukawa() {
-  if (!yukawaMesh) { setTimeout(placeYukawa, 300); return }
+      #scan-hint {
+        position: fixed; bottom: 48px; left: 0; right: 0;
+        text-align: center; z-index: 200; pointer-events: none;
+        display: none; padding: 0 28px; transition: opacity 0.6s;
+      }
+      #scan-hint p {
+        font-size: 13px; line-height: 1.8; color: #fff;
+        background: rgba(0,0,0,0.55);
+        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 8px; padding: 14px 20px;
+        font-family: 'Noto Serif TC', serif;
+      }
 
-  // 測試：放在相機正前方 2 公尺
-  yukawaPos.x = 0
-  yukawaPos.z = -2
+      #found-hint {
+        position: fixed; top: 48px; left: 0; right: 0;
+        text-align: center; z-index: 200; pointer-events: none;
+        display: none; padding: 0 28px;
+      }
+      #found-hint p {
+        font-size: 13px; line-height: 1.8;
+        background: rgba(0,0,0,0.55);
+        backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255,215,100,0.2);
+        border-radius: 8px; padding: 12px 20px; color: #ffd764;
+        font-family: 'Noto Serif TC', serif;
+      }
 
-  yukawaMesh.position.set(0, 0, -2)
-  yukawaMesh.visible = true
+      #dialog-box {
+        display: none; position: fixed;
+        bottom: 0; left: 0; right: 0; z-index: 300;
+      }
+      #dialog-box.visible { display: block; }
+      .dialog-inner {
+        background: rgba(8,8,8,0.92);
+        backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(255,215,100,0.2);
+        padding: 24px 28px 40px;
+      }
+      .dialog-name {
+        font-size: 12px; letter-spacing: 0.2em;
+        color: #ffd764; margin-bottom: 12px; opacity: 0.8; font-family: sans-serif;
+      }
+      .dialog-text {
+        font-family: 'Noto Serif TC', serif;
+        font-size: 16px; line-height: 1.9; color: #e8e0d0; min-height: 60px;
+      }
+      .dialog-cursor {
+        display: inline-block; width: 2px; height: 16px;
+        background: #ffd764; margin-left: 2px;
+        vertical-align: middle; animation: blink 0.8s infinite;
+      }
+      @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+      .dialog-next {
+        margin-top: 16px; text-align: right;
+        font-size: 12px; color: #ffd764; opacity: 0.6;
+        letter-spacing: 0.1em; animation: pulse 1.5s infinite; font-family: sans-serif;
+      }
+      @keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:0.9} }
 
-  if (glowMesh) {
-    glowMesh.position.set(0, -0.85, -2)
-    glowMesh.visible = true
-  }
+      #enter-btn {
+        display: none; position: fixed; bottom: 48px; left: 50%;
+        transform: translateX(-50%); z-index: 400;
+        padding: 16px 48px; border-radius: 2px;
+        border: 1px solid rgba(255,215,100,0.5);
+        background: rgba(255,215,100,0.1); color: #ffd764;
+        font-family: 'Noto Serif TC', serif;
+        font-size: 15px; letter-spacing: 0.15em;
+        cursor: pointer; white-space: nowrap; animation: glow 2s infinite;
+      }
+      @keyframes glow {
+        0%,100%{ box-shadow: 0 0 8px rgba(255,215,100,0.2); }
+        50%{ box-shadow: 0 0 20px rgba(255,215,100,0.5); }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="xr-canvas"></canvas>
+    <canvas id="three-canvas"></canvas>
 
-  state.yukawaPlaced = true
-  scanHint.style.display = 'none'
-  foundHint.style.display = 'block'
+    <div id="start-screen">
+      <p class="label">互動展覽 · AR 體驗</p>
+      <h1>核去核從<br>核能背後的和平抉擇</h1>
+      <button id="start-btn">進 入 體 驗</button>
+    </div>
 
-  setTimeout(function() {
-    foundHint.style.transition = 'opacity 1s'
-    foundHint.style.opacity = '0'
-    setTimeout(function() { foundHint.style.display = 'none' }, 1000)
-  }, 4000)
+    <div id="scan-hint">
+      <p>尋找一個展品並將相機對準該展品，該展品是一幅橫批，顯示湯川秀樹對和平理念的追求，貫穿了他晚年的思想與創作。</p>
+    </div>
 
-  // 偵測靠近
-  var check = setInterval(function() {
-    if (state.dialogStarted) { clearInterval(check); return }
-    var dx = cameraPos.x - yukawaPos.x
-    var dz = cameraPos.z - yukawaPos.z
-    if (Math.sqrt(dx * dx + dz * dz) < TRIGGER_DISTANCE) {
-      clearInterval(check)
-      state.dialogStarted = true
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100])
-      dialogBox.classList.add('visible')
-      showNextDialog()
-    }
-  }, 400)
-}
+    <div id="found-hint">
+      <p>湯川秀樹就在展場某處，試著找到他</p>
+    </div>
 
-// ── Image Target 模組 ─────────────────────────────────────────
-function buildImageTargetModule() {
-  return {
-    name: 'calligraphy-ar',
-    listeners: [
-      {
-        event: 'reality.imagefound',
-        process: function(e) {
-          if (state.artworkFound || e.detail.name !== ARTWORK_NAME) return
-          state.artworkFound = true
-          if (navigator.vibrate) navigator.vibrate(200)
-          setTimeout(placeYukawa, 1500)
-        },
-      },
-    ],
-  }
-}
+    <div id="dialog-box">
+      <div class="dialog-inner">
+        <p class="dialog-name">湯川 秀樹</p>
+        <p class="dialog-text" id="dialog-text"></p>
+        <p class="dialog-next" id="dialog-next" style="display:none">點擊繼續 ▼</p>
+      </div>
+    </div>
 
-// ── 8th Wall 初始化 ───────────────────────────────────────────
-var targetDataLoaded = []
+    <button id="enter-btn">進 入 故 事 →</button>
 
-fetch('./image-targets/' + ARTWORK_NAME + '/' + ARTWORK_NAME + '.json')
-  .then(function(r) {
-    if (!r.ok) throw new Error('找不到 JSON')
-    return r.json()
-  })
-  .then(function(data) { targetDataLoaded = [data] })
-  .catch(function(err) {
-    if (scanHint) scanHint.innerHTML = '<p style="color:red;">錯誤：' + err.message + '</p>'
-  })
-
-function onxrloaded() {
-  if (targetDataLoaded.length === 0) { setTimeout(onxrloaded, 200); return }
-
-  XR8.XrController.configure({
-    imageTargetData: targetDataLoaded,
-    disableWorldTracking: false,
-  })
-
-  XR8.addCameraPipelineModules([
-    XR8.GlTextureRenderer.pipelineModule(),
-    XR8.XrController.pipelineModule(),
-    cameraSyncModule(),
-    buildImageTargetModule(),
-  ])
-
-  XR8.run({ canvas: document.getElementById('xr-canvas') })
-}
-
-// ── Canvas 尺寸 ───────────────────────────────────────────────
-function resizeXrCanvas() {
-  var canvas = document.getElementById('xr-canvas')
-  var dpr = window.devicePixelRatio || 1
-  canvas.width = window.innerWidth * dpr
-  canvas.height = window.innerHeight * dpr
-  canvas.style.width = window.innerWidth + 'px'
-  canvas.style.height = window.innerHeight + 'px'
-}
-
-// ── 啟動 ──────────────────────────────────────────────────────
-function startAR() {
-  document.getElementById('start-screen').style.display = 'none'
-  scanHint.style.display = 'block'
-
-  resizeXrCanvas()
-  initThree()
-
-  window.addEventListener('resize', function() {
-    resizeXrCanvas()
-    onResize()
-  })
-  screen.orientation && screen.orientation.addEventListener('change', function() {
-    setTimeout(function() { resizeXrCanvas(); onResize() }, 200)
-  })
-
-  window.XR8 ? onxrloaded() : window.addEventListener('xrloaded', onxrloaded)
-}
-
-document.getElementById('start-btn').addEventListener('click', startAR)
-enterBtn.addEventListener('click', function() { window.location.href = STORY_URL })
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="app.js"></script>
+    <script
+      src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js"
+      async crossorigin="anonymous"
+      data-preload-chunks="slam">
+    </script>
+  </body>
+</html>

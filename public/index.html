@@ -15,6 +15,12 @@
         width: 100% !important; height: 100% !important;
         z-index: 0;
       }
+      #three-canvas {
+        position: fixed; top: 0; left: 0;
+        width: 100% !important; height: 100% !important;
+        z-index: 1;
+        pointer-events: none;
+      }
 
       #start-screen {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -119,6 +125,7 @@
   </head>
   <body>
     <canvas id="xr-canvas"></canvas>
+    <canvas id="three-canvas"></canvas>
 
     <div id="start-screen">
       <p class="label">互動展覽 · AR 體驗</p>
@@ -131,7 +138,7 @@
     </div>
 
     <div id="found-hint">
-      <p>湯川秀樹就在展場某處，試著找到他</p>
+      <p>請將手機環繞展場緩慢掃描...</p>
     </div>
 
     <div id="dialog-box">
@@ -144,6 +151,7 @@
 
     <button id="enter-btn">進 入 故 事 →</button>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="app.js"></script>
     <script
       src="https://cdn.jsdelivr.net/npm/@8thwall/engine-binary@1/dist/xr.js"

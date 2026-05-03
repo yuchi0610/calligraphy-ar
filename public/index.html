@@ -15,7 +15,6 @@
         height: 100% !important;
       }
 
-      /* 開始畫面 */
       #start-screen {
         position: fixed; top: 0; left: 0; width: 100%; height: 100%;
         background: #0a0a0a;
@@ -49,7 +48,6 @@
       }
       #start-btn:active { background: rgba(255,255,255,0.15); }
 
-      /* 掃描提示 */
       #scan-hint {
         position: fixed;
         bottom: 160px; left: 0; right: 0;
@@ -71,49 +69,6 @@
         padding: 14px 18px;
       }
 
-      /* 對焦按鈕 */
-      #focus-btn {
-        display: none;
-        position: fixed;
-        bottom: 80px; left: 50%;
-        transform: translateX(-50%);
-        z-index: 150;
-        width: 60px; height: 60px;
-        border-radius: 50%;
-        border: 2px solid rgba(255,255,255,0.6);
-        background: rgba(255,255,255,0.15);
-        backdrop-filter: blur(8px);
-        -webkit-backdrop-filter: blur(8px);
-        cursor: pointer;
-        transition: background 0.15s, transform 0.1s;
-      }
-      #focus-btn:active {
-        background: rgba(255,255,255,0.35);
-        transform: translateX(-50%) scale(0.93);
-      }
-      #focus-btn::after {
-        content: '';
-        position: absolute;
-        top: 50%; left: 50%;
-        transform: translate(-50%, -50%);
-        width: 20px; height: 20px;
-        border: 2px solid #fff;
-        border-radius: 3px;
-      }
-      /* 對焦動畫 */
-      #focus-btn.focusing {
-        border-color: #4eff91;
-      }
-      #focus-btn.focusing::after {
-        border-color: #4eff91;
-        animation: focusPulse 0.4s ease;
-      }
-      @keyframes focusPulse {
-        0% { transform: translate(-50%, -50%) scale(1.3); opacity: 0.5; }
-        100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-      }
-
-      /* 結果卡片 */
       #ar-overlay {
         display: none; position: fixed;
         bottom: 0; left: 0; right: 0;
@@ -162,10 +117,8 @@
     </div>
 
     <div id="scan-hint">
-      <p>在展場中尋找湯川秀樹的書法橫批，將相機對準作品，感受這位諾貝爾物理學家對和平的深切期盼。</p>
+      <p>尋找一個展品並將相機對準該展品，該展品是一幅橫批，顯示湯川秀樹對和平理念的追求，貫穿了他晚年的思想與創作。</p>
     </div>
-
-    <button id="focus-btn" title="對焦"></button>
 
     <div id="ar-overlay">
       <div class="ar-card">

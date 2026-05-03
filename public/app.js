@@ -5,7 +5,7 @@ var ARTWORK = {
   desc: '湯川秀樹',
 }
 
-var STORY_URL = 'https://example.com'  // ← 之後換成你的網址
+var STORY_URL = 'https://calligraphy-ar.vercel.app/'  // ← 之後換成你的網址
 
 // 湯川對話內容
 var DIALOGS = [

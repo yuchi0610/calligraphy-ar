@@ -85,6 +85,7 @@ var scene3 = null  // { scene, camera, renderer }
 var yukawaMesh = null
 var glowMesh = null
 var yukawaPos = { x: 0, z: 0 }
+var minCamY = null  // session 中觀測到的最低相機 Y，用來估算地面
 
 function threePipelineModule() {
   return {
@@ -129,6 +130,11 @@ function threePipelineModule() {
       var reality = args.processCpuResult.reality
       var camera = scene3.camera
 
+      // 追蹤最低相機 Y（走動時的自然持握高度 ≈ 最接近地面）
+      if (reality.position && (minCamY === null || reality.position.y < minCamY)) {
+        minCamY = reality.position.y
+      }
+
       // 更新投影矩陣
       if (reality.intrinsics) {
         for (var i = 0; i < 16; i++) {
@@ -150,7 +156,7 @@ function threePipelineModule() {
         glowMesh.material.opacity = 0.15 + Math.sin(Date.now() * 0.003) * 0.08
       }
 
-      // 人物永遠面向相機（lerp 平滑，消除 SLAM 雜訊造成的抖動）
+      // 人物面向相機（死區 3° + lerp，過濾 SLAM 微小雜訊）
       if (yukawaMesh && yukawaMesh.visible) {
         var dx = camera.position.x - yukawaMesh.position.x
         var dz = camera.position.z - yukawaMesh.position.z
@@ -159,7 +165,9 @@ function threePipelineModule() {
         var delta = targetAngle - cur
         while (delta > Math.PI) delta -= 2 * Math.PI
         while (delta < -Math.PI) delta += 2 * Math.PI
-        yukawaMesh.rotation.set(0, cur + delta * 0.05, 0)
+        if (Math.abs(delta) > 0.05) {  // 3° 死區，低於此不更新
+          yukawaMesh.rotation.set(0, cur + delta * 0.05, 0)
+        }
       }
 
       // 靠近偵測
@@ -249,7 +257,10 @@ function placeYukawa() {
   var dist = 4.0
   var x = cam.position.x + fwd.x * dist
   var z = cam.position.z + fwd.z * dist
-  var y = cam.position.y - 0.6
+  // minCamY 是觀測到的最低相機高度（自然持握 ≈ 1.0-1.2m 離地）
+  // 地面 ≈ minCamY - 1.1，人物中心 = 地面 + 0.9*(角色高/2)
+  var base = minCamY !== null ? minCamY : cam.position.y
+  var y = base - 1.1 + 0.9  // = base - 0.2
 
   yukawaPos.x = x
   yukawaPos.z = z

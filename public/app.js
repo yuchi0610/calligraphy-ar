@@ -3,7 +3,8 @@ var ARTWORK_NAME = 'artwork-01'
 var STORY_URL = 'https://calligraphy-ar.vercel.app/'
 var YUKAWA_IMAGE = './yukawa.png'
 var TRIGGER_DISTANCE = 1.5
-var SCAN_THRESHOLD = 1.2  // 累積移動距離（公尺）達到後放置人物
+var SCAN_THRESHOLD = 2.5  // 累積移動距離（公尺）達到後放置人物
+var SCAN_STEP_MIN = 0.01  // 每幀最小位移（公尺），過濾 SLAM 雜訊
 
 var DIALOGS = [
   '……你來了。我在這裡等了很久。',
@@ -194,7 +195,8 @@ function threePipelineModule() {
         if (scanState.lastPos) {
           var mdx = rp.x - scanState.lastPos.x
           var mdz = rp.z - scanState.lastPos.z
-          scanState.totalMove += Math.sqrt(mdx * mdx + mdz * mdz)
+          var step = Math.sqrt(mdx * mdx + mdz * mdz)
+          if (step > SCAN_STEP_MIN) scanState.totalMove += step  // 過濾靜止雜訊
           var pct = Math.min(100, Math.round(scanState.totalMove / SCAN_THRESHOLD * 100))
           var hint = foundHint.querySelector('p')
           hint.textContent = '掃描空間中　' + pct + '%'
@@ -315,9 +317,14 @@ function placeYukawa() {
   if (wallFacingQuat) {
     var fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(wallFacingQuat)
     fwd.y = 0
-    fwd.normalize()
-    var wallAngle = Math.atan2(fwd.x, -fwd.z)
-    angle = wallAngle + Math.PI + (Math.random() - 0.5) * Math.PI
+    // 若相機當時朝正上/下（掃描高處展品），水平分量接近 0 → 改用隨機方向
+    if (fwd.length() > 0.15) {
+      fwd.normalize()
+      var wallAngle = Math.atan2(fwd.x, -fwd.z)
+      angle = wallAngle + Math.PI + (Math.random() - 0.5) * Math.PI
+    } else {
+      angle = Math.random() * Math.PI * 2
+    }
   } else {
     angle = Math.random() * Math.PI * 2
   }

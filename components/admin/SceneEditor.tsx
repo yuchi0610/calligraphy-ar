@@ -93,6 +93,23 @@ function TextForm({ config, onChange, onPickMedia }: FormProps) {
           placeholder="輸入要顯示的文字內容…"
         />
       </Field>
+
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="字體大小（px）">
+          <input type="number" min={10} max={48} value={c.font_size ?? 16}
+            onChange={e => onChange({ ...config, font_size: Number(e.target.value) })}
+            className={inputCls} />
+        </Field>
+        <Field label="文字顏色">
+          <div className="flex items-center gap-2">
+            <input type="color" value={c.text_color ?? '#ffffff'}
+              onChange={e => onChange({ ...config, text_color: e.target.value })}
+              className="w-10 h-9 rounded border border-stone-200 cursor-pointer flex-shrink-0" />
+            <span className="text-xs text-stone-400 font-mono">{c.text_color ?? '#ffffff'}</span>
+          </div>
+        </Field>
+      </div>
+
       <Field label="背景圖片" hint="選填">
         <MediaButton value={c.background_url ?? ''} onChange={v => onChange({ ...config, background_url: v })} onPickMedia={() => onPickMedia(v => onChange({ ...config, background_url: v }))} />
       </Field>

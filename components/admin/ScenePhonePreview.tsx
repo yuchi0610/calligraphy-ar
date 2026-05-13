@@ -56,12 +56,13 @@ function MiniDialogPreview({ config }: { config: DialogConfig }) {
       return
     }
     if (index < dialogs.length - 1) setIndex(i => i + 1)
-    else setIndex(0) // loop for preview
+    else setIndex(0)
   }
 
   const boxTheme = config.box_theme ?? 'dark'
-  const boxHeightPct = config.box_height ?? 38
-  const charHeightPct = 100 - boxHeightPct
+  // Use flex numeric values so proportions update live (percentage heights are unreliable in flex-col)
+  const boxFlex = config.box_height ?? 38
+  const charFlex = 100 - boxFlex
   const nameSize = Math.round((config.name_font_size ?? 14) * 0.6)
   const textSize = Math.round((config.text_font_size ?? 14) * 0.6)
   const nameColor = config.name_color ?? '#ffffff'
@@ -80,7 +81,8 @@ function MiniDialogPreview({ config }: { config: DialogConfig }) {
     >
       {current?.character_image_url ? (
         <>
-          <div className="relative overflow-hidden flex-shrink-0" style={{ height: `${charHeightPct}%` }}>
+          {/* flex numeric keeps proportions live when box_height slider moves */}
+          <div className="relative overflow-hidden" style={{ flex: charFlex, minHeight: 0 }}>
             <img
               src={current.character_image_url}
               alt=""
@@ -96,7 +98,6 @@ function MiniDialogPreview({ config }: { config: DialogConfig }) {
               }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-            {/* progress dots */}
             {dialogs.length > 1 && (
               <div className="absolute top-2 left-0 right-0 flex justify-center gap-1">
                 {dialogs.map((_, i) => (
@@ -112,20 +113,20 @@ function MiniDialogPreview({ config }: { config: DialogConfig }) {
               </div>
             )}
           </div>
-          <div className="flex-1 px-2 pt-1.5 pb-2 flex flex-col" style={{ backgroundColor: boxBg }}>
-            <p style={{ fontSize: textSize, color: textColor, lineHeight: 1.6 }} className="flex-1 line-clamp-4">
+          <div className="px-2 pt-1.5 pb-2 flex flex-col" style={{ flex: boxFlex, minHeight: 0, backgroundColor: boxBg }}>
+            <p style={{ fontSize: textSize, color: textColor, lineHeight: 1.6 }} className="flex-1 overflow-hidden">
               {displayed || <span style={{ opacity: 0.3 }}>尚未輸入…</span>}
               <span className={`inline-block w-0.5 h-3 bg-current ml-0.5 align-middle animate-pulse ${done ? 'opacity-0' : ''}`} />
             </p>
             {done && (
-              <p className="text-right mt-1" style={{ fontSize: 7, opacity: 0.4, color: textColor }}>
-                {index < dialogs.length - 1 ? '點擊繼續 ▼' : '點擊重播 ↺'}
+              <p className="text-right" style={{ fontSize: 6, opacity: 0.4, color: textColor }}>
+                {index < dialogs.length - 1 ? '繼續 ▼' : '重播 ↺'}
               </p>
             )}
           </div>
         </>
       ) : (
-        <div className="flex flex-col h-full justify-end" onClick={handleClick}>
+        <div className="flex flex-col h-full justify-end">
           {dialogs.length > 1 && (
             <div className="flex justify-center gap-1 mb-2">
               {dialogs.map((_, i) => (
@@ -148,6 +149,14 @@ function MiniDialogPreview({ config }: { config: DialogConfig }) {
 }
 
 // ── 互動報紙預覽 ──────────────────────────────────────────────────
+const MINI_FLIP_CSS = `
+  @keyframes miniPageSweep {
+    0%, 15%  { transform: translateX(0) rotate(0deg); opacity: 1; }
+    75%      { transform: translateX(-90%) rotate(-10deg); opacity: 0.2; }
+    76%, 100% { transform: translateX(0) rotate(0deg); opacity: 0; }
+  }
+`
+
 function MiniNewspaperPreview({ config }: { config: NewspaperConfig }) {
   const pages = config.pages ?? []
   const [index, setIndex] = useState(0)
@@ -160,16 +169,35 @@ function MiniNewspaperPreview({ config }: { config: NewspaperConfig }) {
   return (
     <div className="w-full h-full bg-stone-100 text-stone-900 flex flex-col">
       {page?.fast_flip ? (
-        <div className="flex-1 flex items-center justify-center bg-amber-50">
-          <p className="text-[8px] text-stone-400">翻頁動畫</p>
+        <div className="flex-1 flex items-center justify-center bg-amber-50 overflow-hidden relative">
+          <style>{MINI_FLIP_CSS}</style>
+          {[...Array(4)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute bg-white border border-stone-200 shadow-sm rounded"
+              style={{
+                width: 56, height: 72,
+                left: '50%', top: '50%',
+                marginLeft: -28, marginTop: -36,
+                animation: 'miniPageSweep 1.4s ease-in infinite',
+                animationDelay: `${i * 0.35}s`,
+              }}
+            >
+              <div className="p-1.5 space-y-1">
+                {[0,1,2].map(j => (
+                  <div key={j} className="h-1 bg-stone-100 rounded" style={{ width: `${50 + j * 15}%` }} />
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       ) : page?.image_url ? (
-        <img src={page.image_url} className="w-full flex-1 object-cover" alt="" />
+        <img src={page.image_url} className="w-full flex-1 object-cover" alt="" style={{ minHeight: 0 }} />
       ) : (
         <div className="flex-1 flex items-center justify-center"><p className="text-[8px] text-stone-400">未設定圖片</p></div>
       )}
       {pages.length > 1 && (
-        <div className="flex items-center justify-between px-2 py-1.5 border-t border-stone-200 bg-white">
+        <div className="flex items-center justify-between px-2 py-1.5 border-t border-stone-200 bg-white flex-shrink-0">
           <button onClick={e => { e.stopPropagation(); index > 0 && setIndex(i => i - 1) }}
             className="text-[8px] text-stone-400 disabled:opacity-30" disabled={index === 0}>←</button>
           <span className="text-[7px] text-stone-400">{index + 1}/{pages.length}</span>
@@ -181,7 +209,7 @@ function MiniNewspaperPreview({ config }: { config: NewspaperConfig }) {
   )
 }
 
-// ── 靜態內容 ──────────────────────────────────────────────────────
+// ── 靜態 / 互動內容分派 ──────────────────────────────────────────
 function PreviewContent({ scene, interactive }: { scene: Scene; interactive?: boolean }) {
   const config = scene.config as Record<string, unknown>
 
@@ -190,6 +218,7 @@ function PreviewContent({ scene, interactive }: { scene: Scene; interactive?: bo
       const c = config as unknown as DialogConfig
       if (interactive) return <MiniDialogPreview config={c} />
       const first = c.dialogs?.[0]
+      const boxBg = (c.box_theme ?? 'dark') === 'dark' ? '#0f172a' : '#ffffff'
       return (
         <div className="w-full h-full flex flex-col text-white"
           style={c.background_url
@@ -202,21 +231,17 @@ function PreviewContent({ scene, interactive }: { scene: Scene; interactive?: bo
               <div className="flex-1 relative overflow-hidden">
                 <img src={first.character_image_url} alt="" className="w-full h-full object-cover object-top" />
                 <div className="absolute inset-0 bg-gradient-to-t from-stone-900/50 via-transparent to-transparent" />
-                {first.speaker && (
-                  <div className="absolute bottom-0 left-0 right-0 bg-stone-900/85 py-1 px-2">
-                    <span className="text-[8px] font-semibold text-white">{first.speaker}</span>
-                  </div>
-                )}
               </div>
-              <div className="bg-stone-900/95 p-2 border-t border-white/10">
-                <p className="text-[9px] leading-relaxed text-white/80 line-clamp-3">{first.text || <span className="text-white/25 italic">尚未輸入…</span>}</p>
+              <div className="p-2 border-t border-white/10" style={{ backgroundColor: boxBg }}>
+                {first.speaker && <p className="text-[7px] font-semibold mb-0.5" style={{ color: c.name_color ?? '#fff' }}>{first.speaker}</p>}
+                <p className="text-[9px] leading-relaxed line-clamp-3" style={{ color: c.text_color ?? 'rgba(255,255,255,0.8)' }}>{first.text || <span style={{ opacity: 0.3 }}>尚未輸入…</span>}</p>
               </div>
             </>
           ) : (
             <div className="flex flex-col h-full justify-end">
-              <div className="bg-black/75 p-2.5 border-t border-white/10">
-                {first?.speaker && <p className="text-[7px] text-amber-400 mb-1">{first.speaker}</p>}
-                <p className="text-[9px] text-white/80">{first?.text || <span className="text-white/25 italic">尚未輸入…</span>}</p>
+              <div className="p-2.5 border-t border-white/10" style={{ backgroundColor: boxBg }}>
+                {first?.speaker && <p className="text-[7px] mb-1" style={{ color: c.name_color ?? '#ffbf00' }}>{first.speaker}</p>}
+                <p className="text-[9px]" style={{ color: c.text_color ?? 'rgba(255,255,255,0.8)' }}>{first?.text || <span style={{ opacity: 0.3 }}>尚未輸入…</span>}</p>
               </div>
             </div>
           )}
@@ -230,10 +255,15 @@ function PreviewContent({ scene, interactive }: { scene: Scene; interactive?: bo
       const page = c.pages?.[0]
       return (
         <div className="w-full h-full bg-stone-100 flex flex-col">
-          {page?.image_url
-            ? <img src={page.image_url} className="w-full flex-1 object-cover" alt="" />
-            : <div className="flex-1 flex items-center justify-center"><p className="text-[8px] text-stone-400">未設定圖片</p></div>
-          }
+          {page?.fast_flip ? (
+            <div className="flex-1 flex items-center justify-center bg-amber-50">
+              <p className="text-[8px] text-stone-400">翻頁動畫頁</p>
+            </div>
+          ) : page?.image_url ? (
+            <img src={page.image_url} className="w-full flex-1 object-cover" alt="" />
+          ) : (
+            <div className="flex-1 flex items-center justify-center"><p className="text-[8px] text-stone-400">未設定圖片</p></div>
+          )}
         </div>
       )
     }
@@ -249,8 +279,9 @@ function PreviewContent({ scene, interactive }: { scene: Scene; interactive?: bo
           }
         >
           {c.background_url && <div className="absolute inset-0 bg-black" style={{ opacity }} />}
-          <p className="relative text-center text-white text-[10px] leading-relaxed">
-            {c.text || <span className="text-white/25 italic">尚未輸入…</span>}
+          <p className="relative text-center leading-relaxed"
+            style={{ fontSize: Math.round((c.font_size ?? 16) * 0.55), color: c.text_color ?? '#ffffff' }}>
+            {c.text || <span style={{ opacity: 0.3 }}>尚未輸入…</span>}
           </p>
         </div>
       )
@@ -261,7 +292,7 @@ function PreviewContent({ scene, interactive }: { scene: Scene; interactive?: bo
       return (
         <div className="w-full h-full bg-black flex items-center justify-center">
           {c.video_url
-            ? <video src={c.video_url} className="w-full h-full object-contain" muted />
+            ? <video src={c.video_url} className="w-full h-full object-contain" autoPlay muted loop playsInline />
             : <p className="text-white/25 text-[9px]">影片未設定</p>
           }
         </div>

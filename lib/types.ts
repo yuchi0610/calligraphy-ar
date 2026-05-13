@@ -50,6 +50,8 @@ export interface TextConfig {
   text: string
   background_url?: string
   overlay_opacity?: number
+  font_size?: number   // px, default 16
+  text_color?: string  // default #ffffff
 }
 
 export interface SignatureConfig {

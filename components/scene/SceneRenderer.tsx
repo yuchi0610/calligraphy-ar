@@ -248,11 +248,11 @@ function TextScene({ scene, onFinish }: { scene: Scene; onFinish: () => void }) 
     >
       {config.background_url && <div className="absolute inset-0 bg-black" style={{ opacity }} />}
       <div className="relative z-10 max-w-xs px-8 text-center">
-        <p className="text-white text-base leading-loose tracking-wide">
+        <p className="leading-loose tracking-wide" style={{ fontSize: config.font_size ?? 16, color: config.text_color ?? '#ffffff' }}>
           {displayed}
-          <span className={`inline-block w-0.5 h-5 bg-white/60 ml-0.5 align-middle animate-pulse ${done ? 'opacity-0' : ''}`} />
+          <span className={`inline-block w-0.5 h-5 ml-0.5 align-middle animate-pulse ${done ? 'opacity-0' : ''}`} style={{ backgroundColor: config.text_color ?? '#ffffff', opacity: 0.6 }} />
         </p>
-        {done && <p className="text-white/30 text-xs mt-8 tracking-widest">點擊繼續</p>}
+        {done && <p className="text-xs mt-8 tracking-widest" style={{ color: config.text_color ?? '#ffffff', opacity: 0.3 }}>點擊繼續</p>}
       </div>
     </div>
   )

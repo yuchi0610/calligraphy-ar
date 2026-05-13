@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Scene, Ending, DialogConfig, AnimationConfig, NewspaperConfig, SignatureConfig, GameConfig } from '@/lib/types'
+import type { Scene, Ending, DialogConfig, AnimationConfig, NewspaperConfig, TextConfig, SignatureConfig, GameConfig } from '@/lib/types'
 
 interface Props {
   scene: Scene
@@ -43,6 +43,8 @@ export default function SceneRenderer({ scene, nextScene, endings, onFinish }: P
   switch (scene.type) {
     case 'dialog':
       return <DialogScene scene={scene} onFinish={goNext} />
+    case 'text':
+      return <TextScene scene={scene} onFinish={goNext} />
     case 'animation':
       return <AnimationScene scene={scene} onFinish={goNext} />
     case 'newspaper':
@@ -107,35 +109,138 @@ function DialogScene({ scene, onFinish }: { scene: Scene; onFinish: () => void }
   }
 
   const current = dialogs[index]
+  const hasCharacterImage = !!current?.character_image_url
 
   return (
     <div
-      className="min-h-screen bg-black text-white flex flex-col justify-end p-0 cursor-pointer select-none"
-      style={config.background_url ? { backgroundImage: `url(${config.background_url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}}
+      className="min-h-screen text-white flex flex-col cursor-pointer select-none relative overflow-hidden"
+      style={{
+        background: config.background_url
+          ? undefined
+          : 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #1e1b4b 100%)',
+        ...(config.background_url ? { backgroundImage: `url(${config.background_url})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}),
+      }}
       onClick={handleTap}
     >
-      {/* 進度點 */}
-      <div className="flex justify-center gap-1.5 mb-4">
-        {dialogs.map((_, i) => (
-          <span key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${i <= index ? 'bg-white' : 'bg-white/20'}`} />
-        ))}
-      </div>
+      {hasCharacterImage ? (
+        /* ── PlayReal 風格：立繪 + 姓名牌 + 對話框 ── */
+        <>
+          {/* 角色立繪區（上方 62%） */}
+          <div className="flex-1 relative overflow-hidden">
+            <img
+              src={current.character_image_url!}
+              alt={current.speaker}
+              className="absolute inset-0 w-full h-full object-cover object-top"
+            />
+            {/* 漸層遮罩 */}
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent" />
 
-      {/* 對話框 */}
-      <div className="bg-black/80 backdrop-blur border-t border-white/10 p-6 pb-10">
-        {current?.speaker && (
-          <div className="flex items-center gap-2 mb-3">
-            {current.avatar_url && (
-              <img src={current.avatar_url} alt={current.speaker} className="w-8 h-8 rounded-full object-cover" />
+            {/* 進度點 */}
+            <div className="absolute top-4 left-0 right-0 flex justify-center gap-1.5">
+              {dialogs.map((_, i) => (
+                <span key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${i <= index ? 'bg-white' : 'bg-white/30'}`} />
+              ))}
+            </div>
+
+            {/* 姓名牌 - 疊在立繪底部 */}
+            {current.speaker && (
+              <div className="absolute bottom-0 left-0 right-0 flex justify-start px-5 pb-3">
+                <div className="bg-indigo-900/90 backdrop-blur-sm px-4 py-1.5 rounded-t-xl">
+                  <span className="text-sm font-semibold text-white tracking-wide">{current.speaker}</span>
+                </div>
+              </div>
             )}
-            <span className="text-xs text-yellow-400 font-medium tracking-wider">{current.speaker}</span>
           </div>
-        )}
-        <p className="text-sm leading-relaxed text-white/90 min-h-[3rem]">{displayed}</p>
+
+          {/* 對話框（下方 38%） */}
+          <div className="bg-slate-900 px-5 pt-4 pb-10 min-h-[38vh] flex flex-col justify-between">
+            <p className="text-sm leading-relaxed text-white/90 flex-1">{displayed}<span className={`inline-block w-0.5 h-4 bg-white/60 ml-0.5 align-middle animate-pulse ${done ? 'opacity-0' : ''}`} /></p>
+            {done && (
+              <p className="text-xs text-white/25 text-right mt-3">
+                {index < dialogs.length - 1 ? '點擊繼續 ▼' : '點擊結束 ▼'}
+              </p>
+            )}
+          </div>
+        </>
+      ) : (
+        /* ── 舊版風格：底部對話框（無立繪時） ── */
+        <div className="flex flex-col min-h-screen justify-end">
+          <div className="flex justify-center gap-1.5 mb-3">
+            {dialogs.map((_, i) => (
+              <span key={i} className={`w-1.5 h-1.5 rounded-full transition-colors ${i <= index ? 'bg-white' : 'bg-white/20'}`} />
+            ))}
+          </div>
+          <div className="bg-black/80 backdrop-blur border-t border-white/10 p-6 pb-10">
+            {current?.speaker && (
+              <div className="flex items-center gap-2 mb-3">
+                {current.avatar_url && <img src={current.avatar_url} alt={current.speaker} className="w-8 h-8 rounded-full object-cover" />}
+                <span className="text-xs text-yellow-400 font-medium tracking-wider">{current.speaker}</span>
+              </div>
+            )}
+            <p className="text-sm leading-relaxed text-white/90 min-h-[3rem]">{displayed}</p>
+            {done && <p className="text-xs text-white/30 mt-3 text-right">{index < dialogs.length - 1 ? '點擊繼續' : '點擊結束'}</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── 純文字場景 ───────────────────────────────────────────────────
+function TextScene({ scene, onFinish }: { scene: Scene; onFinish: () => void }) {
+  const config = scene.config as TextConfig
+  const text = config.text ?? ''
+  const opacity = (config.overlay_opacity ?? 50) / 100
+  const [displayed, setDisplayed] = useState('')
+  const [done, setDone] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    setDisplayed('')
+    setDone(false)
+    let i = 0
+    function tick() {
+      i++
+      setDisplayed(text.slice(0, i))
+      if (i < text.length) {
+        timerRef.current = setTimeout(tick, 45)
+      } else {
+        setDone(true)
+      }
+    }
+    if (text) tick()
+    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
+  }, [text])
+
+  function handleTap() {
+    if (!done) {
+      if (timerRef.current) clearTimeout(timerRef.current)
+      setDisplayed(text)
+      setDone(true)
+      return
+    }
+    onFinish()
+  }
+
+  return (
+    <div
+      className="min-h-screen flex items-center justify-center cursor-pointer select-none relative overflow-hidden"
+      style={config.background_url
+        ? { backgroundImage: `url(${config.background_url})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+        : { background: '#1c1917' }
+      }
+      onClick={handleTap}
+    >
+      {config.background_url && (
+        <div className="absolute inset-0 bg-black" style={{ opacity }} />
+      )}
+      <div className="relative z-10 max-w-xs px-8 text-center">
+        <p className="text-white text-base leading-loose tracking-wide">
+          {displayed}
+          <span className={`inline-block w-0.5 h-5 bg-white/60 ml-0.5 align-middle animate-pulse ${done ? 'opacity-0' : ''}`} />
+        </p>
         {done && (
-          <p className="text-xs text-white/30 mt-3 text-right">
-            {index < dialogs.length - 1 ? '點擊繼續' : '點擊結束'}
-          </p>
+          <p className="text-white/30 text-xs mt-8 tracking-widest">點擊繼續</p>
         )}
       </div>
     </div>

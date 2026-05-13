@@ -1,4 +1,4 @@
-export type SceneType = 'animation' | 'newspaper' | 'dialog' | 'signature' | 'game' | 'ending'
+export type SceneType = 'animation' | 'newspaper' | 'dialog' | 'text' | 'signature' | 'game' | 'ending'
 
 export interface Scene {
   id: string
@@ -33,11 +33,18 @@ export interface DialogLine {
   speaker: string
   text: string
   avatar_url?: string
+  character_image_url?: string
 }
 
 export interface DialogConfig {
   background_url?: string
   dialogs: DialogLine[]
+}
+
+export interface TextConfig {
+  text: string
+  background_url?: string
+  overlay_opacity?: number
 }
 
 export interface SignatureConfig {
@@ -58,6 +65,7 @@ export type SceneConfig =
   | AnimationConfig
   | NewspaperConfig
   | DialogConfig
+  | TextConfig
   | SignatureConfig
   | GameConfig
   | Record<string, unknown>

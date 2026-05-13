@@ -1,16 +1,10 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 interface MediaFile {
-  name: string
-  url: string
-  size: number
-  created_at: string
-  type: 'image' | 'video' | 'other'
+  name: string; url: string; size: number; created_at: string; type: 'image' | 'video' | 'other'
 }
 
 function fileType(name: string): MediaFile['type'] {
@@ -31,24 +25,18 @@ export default function MediaPage() {
   const [files, setFiles] = useState<MediaFile[]>([])
   const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
   const [copied, setCopied] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function loadFiles() {
     const { data } = await supabase.storage.from('media').list('', { sortBy: { column: 'created_at', order: 'desc' } })
-    if (!data) return
-
+    if (!data) { setLoading(false); return }
     const withUrls: MediaFile[] = data
       .filter(f => f.name !== '.emptyFolderPlaceholder')
       .map(f => {
         const { data: urlData } = supabase.storage.from('media').getPublicUrl(f.name)
-        return {
-          name: f.name,
-          url: urlData.publicUrl,
-          size: f.metadata?.size ?? 0,
-          created_at: f.created_at ?? '',
-          type: fileType(f.name),
-        }
+        return { name: f.name, url: urlData.publicUrl, size: f.metadata?.size ?? 0, created_at: f.created_at ?? '', type: fileType(f.name) }
       })
     setFiles(withUrls)
     setLoading(false)
@@ -60,8 +48,15 @@ export default function MediaPage() {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
+    setUploadError('')
     const filename = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`
-    await supabase.storage.from('media').upload(filename, file)
+    const { error } = await supabase.storage.from('media').upload(filename, file)
+    if (error) {
+      setUploadError(`上傳失敗：${error.message}`)
+      setUploading(false)
+      e.target.value = ''
+      return
+    }
     await loadFiles()
     setUploading(false)
     e.target.value = ''
@@ -80,60 +75,56 @@ export default function MediaPage() {
   }
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-6">
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <h2 className="text-lg font-bold text-white">媒體庫</h2>
-          <p className="text-xs text-zinc-500 mt-0.5">上傳圖片和影片，點複製連結後貼入場景設定</p>
+          <h2 className="text-base font-semibold text-stone-800">媒體庫</h2>
+          <p className="text-xs text-stone-400 mt-0.5">上傳圖片和影片，可在場景編輯時直接選取</p>
         </div>
         <div className="flex items-center gap-3">
-          {uploading && <span className="text-xs text-yellow-400">上傳中…</span>}
+          {uploading && <span className="text-xs text-stone-500">上傳中…</span>}
           <input ref={inputRef} type="file" accept="image/*,video/*" onChange={handleUpload} className="hidden" />
-          <button
-            onClick={() => inputRef.current?.click()}
-            disabled={uploading}
-            className="bg-yellow-400 hover:bg-yellow-300 disabled:opacity-50 text-zinc-900 font-bold text-sm px-4 py-2 rounded transition-colors"
-          >
-            + 上傳檔案
+          <button onClick={() => inputRef.current?.click()} disabled={uploading} className="bg-stone-800 hover:bg-stone-900 disabled:opacity-50 text-white font-medium text-sm px-4 py-2 rounded-lg transition-colors">
+            上傳檔案
           </button>
         </div>
       </div>
 
+      {uploadError && (
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl">
+          <p>{uploadError}</p>
+          <p className="text-xs text-red-400 mt-1">請確認 Supabase Storage 的 bucket「media」已建立，且 RLS 政策允許已登入用戶上傳。</p>
+        </div>
+      )}
+
       {loading ? (
-        <div className="text-center py-16 text-zinc-600 text-sm">載入中…</div>
+        <div className="text-center py-16 text-stone-400 text-sm">載入中…</div>
       ) : files.length === 0 ? (
-        <div className="text-center py-16 text-zinc-600">
-          <p className="text-4xl mb-3">🖼️</p>
-          <p className="text-sm">媒體庫是空的</p>
-          <p className="text-xs mt-1">點「上傳檔案」開始新增圖片或影片</p>
+        <div className="text-center py-20 bg-white border border-dashed border-stone-200 rounded-xl">
+          <p className="text-sm text-stone-500 font-medium">媒體庫是空的</p>
+          <p className="text-xs text-stone-400 mt-1">點「上傳檔案」開始新增圖片或影片</p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {files.map(file => (
-            <div key={file.name} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden group">
-              <div className="aspect-video bg-zinc-800 flex items-center justify-center overflow-hidden">
+            <div key={file.name} className="bg-white border border-stone-200 rounded-xl overflow-hidden group hover:border-stone-400 hover:shadow-sm transition-all">
+              <div className="aspect-square bg-stone-50 flex items-center justify-center overflow-hidden">
                 {file.type === 'image' ? (
                   <img src={file.url} alt={file.name} className="w-full h-full object-cover" />
                 ) : file.type === 'video' ? (
                   <video src={file.url} className="w-full h-full object-cover" muted />
                 ) : (
-                  <span className="text-3xl">📄</span>
+                  <span className="text-stone-300 text-xs">檔案</span>
                 )}
               </div>
-              <div className="p-3">
-                <p className="text-xs text-white truncate mb-1">{file.name}</p>
-                <p className="text-xs text-zinc-500 mb-3">{formatSize(file.size)}</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleCopy(file.url)}
-                    className="flex-1 text-xs py-1.5 rounded bg-zinc-800 hover:bg-zinc-700 text-zinc-300 transition-colors"
-                  >
+              <div className="p-2.5">
+                <p className="text-xs text-stone-700 truncate mb-0.5">{file.name}</p>
+                <p className="text-xs text-stone-400 mb-2">{formatSize(file.size)}</p>
+                <div className="flex gap-1.5">
+                  <button onClick={() => handleCopy(file.url)} className="flex-1 text-xs py-1.5 rounded-lg bg-stone-50 hover:bg-stone-100 text-stone-500 hover:text-stone-800 border border-stone-200 transition-colors">
                     {copied === file.url ? '✓ 已複製' : '複製連結'}
                   </button>
-                  <button
-                    onClick={() => handleDelete(file.name)}
-                    className="text-xs px-2 py-1.5 rounded bg-zinc-800 hover:bg-red-900 text-zinc-500 hover:text-red-400 transition-colors"
-                  >
+                  <button onClick={() => handleDelete(file.name)} className="text-xs px-2 py-1.5 rounded-lg bg-stone-50 hover:bg-red-50 text-stone-300 hover:text-red-500 border border-stone-200 transition-colors">
                     刪
                   </button>
                 </div>

@@ -3,30 +3,51 @@ export const dynamic = 'force-dynamic'
 import { createClient } from '@/lib/supabase/server'
 import type { Ending } from '@/lib/types'
 
+const ENDING_STYLE: Record<string, { from: string; to: string; badge: string; accent: string }> = {
+  A: { from: 'from-amber-50',  to: 'to-amber-100/60',  badge: 'border-amber-200 text-amber-700',  accent: 'text-amber-600' },
+  B: { from: 'from-sky-50',    to: 'to-sky-100/60',    badge: 'border-sky-200 text-sky-700',      accent: 'text-sky-600' },
+  C: { from: 'from-stone-50',  to: 'to-stone-100/60',  badge: 'border-stone-200 text-stone-600',  accent: 'text-stone-500' },
+}
+
 export default async function EndingPage({ params }: { params: Promise<{ type: string }> }) {
   const { type } = await params
+  const key = type.toUpperCase()
   const supabase = await createClient()
-  const { data } = await supabase.from('endings').select('*').eq('type', type.toUpperCase()).single()
+  const { data } = await supabase.from('endings').select('*').eq('type', key).single()
   const ending = data as Ending | null
+  const s = ENDING_STYLE[key] ?? ENDING_STYLE['C']
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-8">
-      <div className="text-center max-w-sm">
-        <p className="text-xs tracking-widest text-zinc-500 mb-6">結局 {type.toUpperCase()}</p>
-        <h2 className="text-xl font-bold mb-6">{ending?.label ?? '—'}</h2>
+    <div className={`min-h-screen bg-gradient-to-b ${s.from} ${s.to} flex flex-col items-center justify-center p-8`}>
+      <div className="text-center max-w-sm w-full">
+        <span className={`inline-block text-[10px] font-medium px-3 py-1 rounded-full border tracking-[0.2em] uppercase mb-8 ${s.badge}`}>
+          結局 {key}
+        </span>
+
+        <h2 className="text-2xl font-semibold text-stone-800 mb-8 leading-snug">
+          {ending?.label ?? '—'}
+        </h2>
+
         {ending?.config.video_url && (
-          <video
-            src={ending.config.video_url}
-            autoPlay
-            playsInline
-            className="w-full rounded mb-8"
-          />
+          <div className="rounded-2xl overflow-hidden shadow-md mb-8 border border-stone-200">
+            <video src={ending.config.video_url} autoPlay playsInline className="w-full" />
+          </div>
         )}
-        <p className="text-zinc-400 text-sm leading-relaxed mb-12">
-          {ending?.config.description ?? ''}
-        </p>
-        <a href="/" className="text-xs text-zinc-600 hover:text-white transition-colors">
-          重新開始
+
+        {ending?.config.image_url && !ending.config.video_url && (
+          <div className="rounded-2xl overflow-hidden shadow-md mb-8 border border-stone-200">
+            <img src={ending.config.image_url} alt={ending.label} className="w-full" />
+          </div>
+        )}
+
+        {ending?.config.description && (
+          <p className="text-stone-500 text-sm leading-relaxed mb-10 text-left whitespace-pre-line">
+            {ending.config.description}
+          </p>
+        )}
+
+        <a href="/" className="inline-block text-xs text-stone-400 hover:text-stone-700 border border-stone-200 hover:border-stone-400 px-8 py-3 rounded-full tracking-widest transition-colors">
+          重新開始體驗
         </a>
       </div>
     </div>

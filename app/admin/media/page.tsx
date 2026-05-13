@@ -49,7 +49,8 @@ export default function MediaPage() {
     if (!file) return
     setUploading(true)
     setUploadError('')
-    const filename = `${Date.now()}-${file.name.replace(/\s+/g, '_')}`
+    const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
+    const filename = `${Date.now()}.${ext}`
     const { error } = await supabase.storage.from('media').upload(filename, file)
     if (error) {
       setUploadError(`上傳失敗：${error.message}`)

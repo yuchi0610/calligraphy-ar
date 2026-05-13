@@ -1,16 +1,31 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+import ExperienceShell from '@/components/scene/ExperienceShell'
+import type { Scene, Ending } from '@/lib/types'
 
 export default function StartPage() {
-  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  const [content, setContent] = useState<{ scenes: Scene[]; endings: Ending[] } | null>(null)
 
   async function handleStart() {
-    const res = await fetch('/api/sessions', { method: 'POST' })
-    const { id } = await res.json()
+    setLoading(true)
+    const [sessionRes, contentRes] = await Promise.all([
+      fetch('/api/sessions', { method: 'POST' }),
+      fetch('/api/content'),
+    ])
+    const { id } = await sessionRes.json()
+    const { scenes, endings } = await contentRes.json()
+
     sessionStorage.setItem('session_id', id)
     sessionStorage.setItem('scores', JSON.stringify({}))
-    router.push('/scene/start')
+
+    setContent({ scenes, endings })
+    setLoading(false)
+  }
+
+  if (content) {
+    return <ExperienceShell scenes={content.scenes} endings={content.endings} />
   }
 
   return (
@@ -21,9 +36,10 @@ export default function StartPage() {
         <p className="text-sm text-zinc-400 mb-12">核能背後的和平抉擇</p>
         <button
           onClick={handleStart}
-          className="border border-white/30 hover:border-white/60 text-white text-sm tracking-widest px-10 py-4 transition-colors"
+          disabled={loading}
+          className="border border-white/30 hover:border-white/60 disabled:opacity-50 text-white text-sm tracking-widest px-10 py-4 transition-colors"
         >
-          開 始 體 驗
+          {loading ? '載 入 中 …' : '開 始 體 驗'}
         </button>
       </div>
     </div>

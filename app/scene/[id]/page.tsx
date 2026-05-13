@@ -32,6 +32,7 @@ export default async function ScenePage({ params }: { params: Promise<{ id: stri
       scene={currentScene}
       nextScene={nextScene}
       endings={endingList}
+      onFinish={() => {}}
     />
   )
 }

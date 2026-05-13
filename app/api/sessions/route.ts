@@ -1,11 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
 
+const SUPABASE_URL = 'https://uozojwiklovkckbygegp.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvem9qd2lrbG92a2NrYnlnZWdwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg2NTY5NTgsImV4cCI6MjA5NDIzMjk1OH0.YvveVfXmTlRXqMciUreffmuGc0H7aGqC1-rs_yFCbUk'
+
 function getSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
-  )
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 }
 
 export async function POST(req: NextRequest) {

@@ -35,11 +35,12 @@ const TYPE_DOT: Record<SceneType, string> = {
   ending:    'bg-red-400',
 }
 
-function SortableRow({ scene, selected, onSelect, onDelete }: {
+function SortableRow({ scene, selected, onSelect, onDelete, onDuplicate }: {
   scene: Scene
   selected: boolean
   onSelect: () => void
   onDelete: (id: string) => void
+  onDuplicate: (scene: Scene) => void
 }) {
   const router = useRouter()
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: scene.id })
@@ -85,6 +86,13 @@ function SortableRow({ scene, selected, onSelect, onDelete }: {
 
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
         <button
+          onClick={() => onDuplicate(scene)}
+          className="text-xs px-2 py-1.5 rounded-lg border transition-colors text-stone-400 hover:text-stone-700 bg-white hover:bg-stone-100 border-stone-200"
+          title="複製場景"
+        >
+          ⎘
+        </button>
+        <button
           onClick={() => router.push(`/admin/scenes/${scene.id}`)}
           className="text-xs px-3 py-1.5 rounded-lg border transition-colors text-stone-500 hover:text-stone-900 bg-white hover:bg-stone-100 border-stone-200"
         >
@@ -106,7 +114,6 @@ export default function SceneList({ initialScenes }: { initialScenes: Scene[] })
   const [selectedId, setSelectedId] = useState<string | null>(initialScenes[0]?.id ?? null)
   const [saving, setSaving] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
   const [newType, setNewType] = useState<SceneType>('dialog')
   const [addError, setAddError] = useState('')
 
@@ -137,16 +144,29 @@ export default function SceneList({ initialScenes }: { initialScenes: Scene[] })
   }
 
   async function handleAdd() {
-    if (!newTitle.trim()) return
     setAddError('')
     const order = scenes.length + 1
     const { data, error } = await supabase
       .from('scenes')
-      .insert({ type: newType, title: newTitle.trim(), order, config: {}, visible: true })
+      .insert({ type: newType, title: TYPE_LABEL[newType], order, config: {}, visible: true })
       .select()
       .single()
     if (error) { setAddError(`建立失敗：${error.message}`); return }
     if (data) router.push(`/admin/scenes/${data.id}`)
+  }
+
+  async function handleDuplicate(scene: Scene) {
+    const order = scenes.length + 1
+    const { data, error } = await supabase
+      .from('scenes')
+      .insert({ type: scene.type, title: scene.title, order, config: scene.config, visible: scene.visible })
+      .select()
+      .single()
+    if (error) { alert(`複製失敗：${error.message}`); return }
+    if (data) {
+      setScenes(prev => [...prev, { ...data } as Scene])
+      setSelectedId(data.id)
+    }
   }
 
   return (
@@ -171,30 +191,17 @@ export default function SceneList({ initialScenes }: { initialScenes: Scene[] })
 
         {showAdd && (
           <div className="bg-white border border-stone-200 rounded-xl p-4 mb-4 shadow-sm">
-            <div className="flex gap-3 items-end">
-              <div className="flex-1">
-                <label className="text-xs text-stone-500 mb-1 block font-medium">場景名稱</label>
-                <input
-                  value={newTitle}
-                  onChange={e => setNewTitle(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleAdd()}
-                  placeholder="例：開場動畫"
-                  autoFocus
-                  className="w-full border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-stone-400"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-stone-500 mb-1 block font-medium">類型</label>
-                <select
-                  value={newType}
-                  onChange={e => setNewType(e.target.value as SceneType)}
-                  className="border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-stone-400 bg-white"
-                >
-                  {(Object.keys(TYPE_LABEL) as SceneType[]).map(t => (
-                    <option key={t} value={t}>{TYPE_LABEL[t]}</option>
-                  ))}
-                </select>
-              </div>
+            <div className="flex gap-3 items-center">
+              <select
+                value={newType}
+                onChange={e => setNewType(e.target.value as SceneType)}
+                autoFocus
+                className="flex-1 border border-stone-200 rounded-lg px-3 py-2 text-sm text-stone-800 focus:outline-none focus:border-stone-400 bg-white"
+              >
+                {(Object.keys(TYPE_LABEL) as SceneType[]).map(t => (
+                  <option key={t} value={t}>{TYPE_LABEL[t]}</option>
+                ))}
+              </select>
               <button onClick={handleAdd} className="bg-stone-800 hover:bg-stone-900 text-white font-medium text-sm px-4 py-2 rounded-lg transition-colors">建立</button>
               <button onClick={() => { setShowAdd(false); setAddError('') }} className="text-stone-400 hover:text-stone-600 text-sm px-3 py-2">取消</button>
             </div>
@@ -218,6 +225,7 @@ export default function SceneList({ initialScenes }: { initialScenes: Scene[] })
                     selected={scene.id === selectedId}
                     onSelect={() => setSelectedId(scene.id)}
                     onDelete={handleDelete}
+                    onDuplicate={handleDuplicate}
                   />
                 ))}
               </div>

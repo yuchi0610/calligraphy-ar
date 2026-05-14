@@ -8,11 +8,11 @@ import ScenePhonePreview from './ScenePhonePreview'
 import type { Scene, SceneType, DialogConfig, AnimationConfig, NewspaperConfig, TextConfig, SignatureConfig, GameConfig } from '@/lib/types'
 
 const TYPE_LABEL: Record<SceneType, string> = {
-  animation: '動畫影片',
-  newspaper: '報紙翻頁',
-  dialog:    '對話文字',
-  text:      '純文字',
-  signature: '簽名互動',
+  animation: '影片',
+  newspaper: '翻頁',
+  dialog:    '對話',
+  text:      '文字/圖片',
+  signature: '簽名',
   game:      '小遊戲',
   ending:    '結局',
 }

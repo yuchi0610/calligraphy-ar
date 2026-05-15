@@ -5,25 +5,29 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import type { Scene, Ending, DialogConfig, AnimationConfig, NewspaperConfig, TextConfig, SignatureConfig, GameConfig } from '@/lib/types'
 
-function bgCss(url: string, x = 50, y = 50, zoom = 100): React.CSSProperties {
+// bg param prevents 1-frame transparent flash while cached image decodes
+function bgCss(url: string, x = 50, y = 50, zoom = 100, bg = '#000'): React.CSSProperties {
   return {
+    backgroundColor: bg,
     backgroundImage: `url(${url})`,
     backgroundSize: zoom === 100 ? 'cover' : `${zoom}%`,
     backgroundPosition: `${x}% ${y}%`,
   }
 }
 import OysterGame from '@/components/games/OysterGame'
-const NewspaperFlip = dynamic(() => import('./NewspaperFlip'), { ssr: false })
+const NewspaperFlip = dynamic(() => import('./NewspaperFlip'), {
+  ssr: false,
+  loading: () => <div className="min-h-dvh bg-zinc-900" />,
+})
 
 interface Props {
   scene: Scene
   nextScene: Scene | null
   endings: Ending[]
   onFinish: () => void
-  onReady?: () => void
 }
 
-export default function SceneRenderer({ scene, nextScene, endings, onFinish, onReady }: Props) {
+export default function SceneRenderer({ scene, nextScene, endings, onFinish }: Props) {
   const router = useRouter()
 
   function goNext() {
@@ -53,37 +57,26 @@ export default function SceneRenderer({ scene, nextScene, endings, onFinish, onR
   }
 
   switch (scene.type) {
-    case 'dialog':    return <DialogScene scene={scene} onFinish={goNext} onReady={onReady} />
-    case 'text':      return <TextScene scene={scene} onFinish={goNext} onReady={onReady} />
-    case 'animation': return <AnimationScene scene={scene} onFinish={goNext} onReady={onReady} />
-    case 'newspaper': return <NewspaperScene scene={scene} onFinish={goNext} onReady={onReady} />
-    case 'signature': return <SignatureScene scene={scene} onFinish={goNext} onReady={onReady} />
-    case 'game':      return <GameScene scene={scene} onFinish={(score) => { addScore(scene.id, score); goNext() }} onReady={onReady} />
+    case 'dialog':    return <DialogScene scene={scene} onFinish={goNext} />
+    case 'text':      return <TextScene scene={scene} onFinish={goNext} />
+    case 'animation': return <AnimationScene scene={scene} onFinish={goNext} />
+    case 'newspaper': return <NewspaperScene scene={scene} onFinish={goNext} />
+    case 'signature': return <SignatureScene scene={scene} onFinish={goNext} />
+    case 'game':      return <GameScene scene={scene} onFinish={(score) => { addScore(scene.id, score); goNext() }} />
     default:
       return (
-        <ReadySignaller onReady={onReady}>
-          <div className="min-h-dvh bg-black text-white flex flex-col items-center justify-center p-6">
-            <p className="text-zinc-500 text-sm mb-8">{scene.title}</p>
-            <button onClick={goNext} className={btnCls}>繼 續 →</button>
-          </div>
-        </ReadySignaller>
+        <div className="min-h-dvh bg-black text-white flex flex-col items-center justify-center p-6">
+          <p className="text-zinc-500 text-sm mb-8">{scene.title}</p>
+          <button onClick={goNext} className={btnCls}>繼 續 →</button>
+        </div>
       )
   }
 }
 
 const btnCls = 'border border-white/30 hover:border-white/60 text-white text-sm tracking-widest px-10 py-4 transition-colors'
 
-// Signals ready after one paint frame — used by scenes with immediately visible content
-function ReadySignaller({ onReady, children }: { onReady?: () => void; children: React.ReactNode }) {
-  useEffect(() => {
-    const id = requestAnimationFrame(() => onReady?.())
-    return () => cancelAnimationFrame(id)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  return <>{children}</>
-}
-
 // ── 對話場景 ─────────────────────────────────────────────────────
-function DialogScene({ scene, onFinish, onReady }: { scene: Scene; onFinish: () => void; onReady?: () => void }) {
+function DialogScene({ scene, onFinish }: { scene: Scene; onFinish: () => void }) {
   const config = scene.config as DialogConfig
   const dialogs = config.dialogs ?? []
   const [index, setIndex] = useState(0)
@@ -133,7 +126,6 @@ function DialogScene({ scene, onFinish, onReady }: { scene: Scene; onFinish: () 
   const nameBadgeTextColor = boxTheme === 'dark' ? nameColor : (config.name_color ?? '#1c1917')
 
   return (
-    <ReadySignaller onReady={onReady}>
     <div
       className="min-h-dvh text-white flex flex-col cursor-pointer select-none relative overflow-hidden"
       style={{
@@ -227,12 +219,11 @@ function DialogScene({ scene, onFinish, onReady }: { scene: Scene; onFinish: () 
         </div>
       )}
     </div>
-    </ReadySignaller>
   )
 }
 
 // ── 純文字場景 ───────────────────────────────────────────────────
-function TextScene({ scene, onFinish, onReady }: { scene: Scene; onFinish: () => void; onReady?: () => void }) {
+function TextScene({ scene, onFinish }: { scene: Scene; onFinish: () => void }) {
   const config = scene.config as TextConfig
   const text = config.text ?? ''
   const opacity = (config.overlay_opacity ?? 50) / 100
@@ -268,7 +259,6 @@ function TextScene({ scene, onFinish, onReady }: { scene: Scene; onFinish: () =>
   }
 
   return (
-    <ReadySignaller onReady={onReady}>
     <div
       className="min-h-dvh flex items-center justify-center cursor-pointer select-none relative overflow-hidden"
       style={config.background_url
@@ -286,35 +276,19 @@ function TextScene({ scene, onFinish, onReady }: { scene: Scene; onFinish: () =>
         {done && <p className="text-xs mt-8 tracking-widest" style={{ color: config.text_color ?? '#ffffff', opacity: 0.3 }}>點擊繼續</p>}
       </div>
     </div>
-    </ReadySignaller>
   )
 }
 
 // ── 影片場景 ─────────────────────────────────────────────────────
-function AnimationScene({ scene, onFinish, onReady }: { scene: Scene; onFinish: () => void; onReady?: () => void }) {
+function AnimationScene({ scene, onFinish }: { scene: Scene; onFinish: () => void }) {
   const config = scene.config as AnimationConfig
   const [ended, setEnded] = useState(false)
-  const readyCalled = useRef(false)
-
-  function signalReady() {
-    if (readyCalled.current) return
-    readyCalled.current = true
-    onReady?.()
-  }
-
-  // Fallback: reveal new scene after 800ms even if canplay never fires
-  useEffect(() => {
-    const t = setTimeout(signalReady, 800)
-    return () => clearTimeout(t)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!config.video_url) {
     return (
-      <ReadySignaller onReady={onReady}>
-        <div className="min-h-dvh bg-black text-white flex flex-col items-center justify-center gap-6">
-          <p className="text-zinc-500 text-sm">影片未設定</p>
-        </div>
-      </ReadySignaller>
+      <div className="min-h-dvh bg-black text-white flex flex-col items-center justify-center gap-6">
+        <p className="text-zinc-500 text-sm">影片未設定</p>
+      </div>
     )
   }
 
@@ -330,7 +304,6 @@ function AnimationScene({ scene, onFinish, onReady }: { scene: Scene; onFinish: 
         loop={config.loop ?? false}
         playsInline
         className={`w-full h-full absolute inset-0 ${config.video_fit === 'cover' ? 'object-cover' : 'object-contain'}`}
-        onCanPlay={signalReady}
         onEnded={() => setEnded(true)}
       />
       {ended && (
@@ -343,7 +316,7 @@ function AnimationScene({ scene, onFinish, onReady }: { scene: Scene; onFinish: 
 }
 
 // ── 報紙場景 ─────────────────────────────────────────────────────
-function NewspaperScene({ scene, onFinish, onReady }: { scene: Scene; onFinish: () => void; onReady?: () => void }) {
+function NewspaperScene({ scene, onFinish }: { scene: Scene; onFinish: () => void }) {
   const config = scene.config as NewspaperConfig
   const items = config.pages ?? []
 
@@ -356,11 +329,11 @@ function NewspaperScene({ scene, onFinish, onReady }: { scene: Scene; onFinish: 
     )
   }
 
-  return <NewspaperFlip items={items} onFinish={onFinish} onReady={onReady} />
+  return <NewspaperFlip items={items} onFinish={onFinish} />
 }
 
 // ── 簽名場景 ─────────────────────────────────────────────────────
-function SignatureScene({ scene, onFinish, onReady }: { scene: Scene; onFinish: () => void; onReady?: () => void }) {
+function SignatureScene({ scene, onFinish }: { scene: Scene; onFinish: () => void }) {
   const config = scene.config as SignatureConfig
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
@@ -427,11 +400,10 @@ function SignatureScene({ scene, onFinish, onReady }: { scene: Scene; onFinish: 
   const hasBg = !!config.background_url
 
   return (
-    <ReadySignaller onReady={onReady}>
     <div
       className="min-h-dvh relative overflow-hidden select-none"
       style={hasBg
-        ? bgCss(config.background_url!, config.background_x, config.background_y, config.background_zoom)
+        ? bgCss(config.background_url!, config.background_x, config.background_y, config.background_zoom, '#f5f0e8')
         : { backgroundColor: '#f5f0e8' }
       }
     >
@@ -453,26 +425,23 @@ function SignatureScene({ scene, onFinish, onReady }: { scene: Scene; onFinish: 
         </button>
       </div>
     </div>
-    </ReadySignaller>
   )
 }
 
 // ── 遊戲場景 ────────────────────────────────────────────────────
-function GameScene({ scene, onFinish, onReady }: { scene: Scene; onFinish: (score: number) => void; onReady?: () => void }) {
+function GameScene({ scene, onFinish }: { scene: Scene; onFinish: (score: number) => void }) {
   const config = scene.config as GameConfig
 
   if (config.game_id === 'oyster') {
-    return <ReadySignaller onReady={onReady}><OysterGame onFinish={onFinish} /></ReadySignaller>
+    return <OysterGame onFinish={onFinish} />
   }
 
   return (
-    <ReadySignaller onReady={onReady}>
-      <div className="min-h-dvh bg-black text-white flex flex-col items-center justify-center p-6 gap-6">
-        <h2 className="text-lg font-bold">{config.title || scene.title}</h2>
-        {config.description && <p className="text-sm text-zinc-400 max-w-xs text-center">{config.description}</p>}
-        <p className="text-xs text-zinc-600">遊戲元件 [{config.game_id}] 開發中</p>
-        <button onClick={() => onFinish(0)} className={btnCls}>跳 過 →</button>
-      </div>
-    </ReadySignaller>
+    <div className="min-h-dvh bg-black text-white flex flex-col items-center justify-center p-6 gap-6">
+      <h2 className="text-lg font-bold">{config.title || scene.title}</h2>
+      {config.description && <p className="text-sm text-zinc-400 max-w-xs text-center">{config.description}</p>}
+      <p className="text-xs text-zinc-600">遊戲元件 [{config.game_id}] 開發中</p>
+      <button onClick={() => onFinish(0)} className={btnCls}>跳 過 →</button>
+    </div>
   )
 }

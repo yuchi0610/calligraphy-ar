@@ -6,6 +6,7 @@ import type { NewspaperItem } from '@/lib/types'
 
 function bgCss(url: string, x = 50, y = 50, zoom = 100): React.CSSProperties {
   return {
+    backgroundColor: '#000',
     backgroundImage: `url(${url})`,
     backgroundSize: zoom === 100 ? 'cover' : `${zoom}%`,
     backgroundPosition: `${x}% ${y}%`,
@@ -58,10 +59,9 @@ const Page = forwardRef<HTMLDivElement, { page: FlatPage }>(
 interface Props {
   items: NewspaperItem[]
   onFinish: () => void
-  onReady?: () => void
 }
 
-export default function NewspaperFlip({ items, onFinish, onReady }: Props) {
+export default function NewspaperFlip({ items, onFinish }: Props) {
   const { flatPages, autoRanges } = useMemo(() => flattenItems(items), [items])
 
   const bookRef = useRef<{ pageFlip: () => { flipNext: (c?: string) => void; flipPrev: (c?: string) => void; getCurrentPageIndex: () => number } }>(null)
@@ -79,11 +79,11 @@ export default function NewspaperFlip({ items, onFinish, onReady }: Props) {
   // Preload all images before showing the flipbook to prevent black-screen during flip
   useEffect(() => {
     const urls = flatPages.map(p => p.image_url).filter(Boolean)
-    if (!urls.length) { setImagesLoaded(true); onReady?.(); return }
+    if (!urls.length) { setImagesLoaded(true); return }
     let done = 0
     urls.forEach(url => {
       const img = new window.Image()
-      img.onload = img.onerror = () => { done++; if (done === urls.length) { setImagesLoaded(true); onReady?.() } }
+      img.onload = img.onerror = () => { done++; if (done === urls.length) setImagesLoaded(true) }
       img.src = url
     })
   }, [flatPages])

@@ -66,7 +66,6 @@ export default function NewspaperFlip({ items, onFinish }: Props) {
   const bookRef = useRef<{ pageFlip: () => { flipNext: (c?: string) => void; flipPrev: (c?: string) => void; getCurrentPageIndex: () => number } }>(null)
   const [currentIdx, setCurrentIdx] = useState(0)
   const [ready, setReady] = useState(false)
-  const [flashing, setFlashing] = useState(false)
   const [imagesLoaded, setImagesLoaded] = useState(false)
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
@@ -92,13 +91,6 @@ export default function NewspaperFlip({ items, onFinish }: Props) {
   const isAuto = !!currentAutoRange
   const isLast = currentIdx >= flatPages.length - 1
 
-  function flashThenFinish(delayBeforeFlash = 0) {
-    setTimeout(() => {
-      setFlashing(true)
-      setTimeout(() => onFinishRef.current(), 700)
-    }, delayBeforeFlash)
-  }
-
   // Accelerating auto-flip: each page halves the delay (min 40 ms), matching reference
   useEffect(() => {
     if (autoTimerRef.current) { clearTimeout(autoTimerRef.current); autoTimerRef.current = null }
@@ -117,7 +109,7 @@ export default function NewspaperFlip({ items, onFinish }: Props) {
 
         if (idx >= range.end) {
           if (idx >= flatPages.length - 1) {
-            flashThenFinish()
+            onFinishRef.current()
           } else {
             // flip once more into the next manual page
             setTimeout(() => { if (!cancelled) bookRef.current?.pageFlip()?.flipNext('bottom') }, 300)
@@ -143,7 +135,7 @@ export default function NewspaperFlip({ items, onFinish }: Props) {
   // Auto-advance on last manual page
   useEffect(() => {
     if (!ready || !isLast || isAuto) return
-    const t = setTimeout(() => flashThenFinish(), 1000)
+    const t = setTimeout(() => onFinishRef.current(), 1000)
     return () => clearTimeout(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, isLast, isAuto])
@@ -222,12 +214,6 @@ export default function NewspaperFlip({ items, onFinish }: Props) {
         ))}
       </HTMLFlipBook>
 
-      {flashing && (
-        <div
-          className="fixed inset-0 bg-white pointer-events-none z-[9999]"
-          style={{ animation: 'flashAnim 1.2s cubic-bezier(0.23,1,0.32,1) forwards' }}
-        />
-      )}
     </div>
   )
 }

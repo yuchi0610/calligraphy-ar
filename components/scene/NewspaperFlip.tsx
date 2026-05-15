@@ -2,12 +2,13 @@
 
 import { useRef, useState, useEffect, useMemo, forwardRef } from 'react'
 import HTMLFlipBook from 'react-pageflip'
+import { imageBlobUrls } from '@/lib/assetCache'
 import type { NewspaperItem } from '@/lib/types'
 
 function bgCss(url: string, x = 50, y = 50, zoom = 100): React.CSSProperties {
   return {
     backgroundColor: '#000',
-    backgroundImage: `url(${url})`,
+    backgroundImage: `url(${imageBlobUrls.get(url) ?? url})`,
     backgroundSize: zoom === 100 ? 'cover' : `${zoom}%`,
     backgroundPosition: `${x}% ${y}%`,
   }

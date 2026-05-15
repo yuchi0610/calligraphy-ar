@@ -3,13 +3,13 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import { imageBlobUrls, videoBlobUrls } from '@/lib/assetCache'
 import type { Scene, Ending, DialogConfig, AnimationConfig, NewspaperConfig, TextConfig, SignatureConfig, GameConfig } from '@/lib/types'
 
-// bg param prevents 1-frame transparent flash while cached image decodes
 function bgCss(url: string, x = 50, y = 50, zoom = 100, bg = '#000'): React.CSSProperties {
   return {
     backgroundColor: bg,
-    backgroundImage: `url(${url})`,
+    backgroundImage: `url(${imageBlobUrls.get(url) ?? url})`,
     backgroundSize: zoom === 100 ? 'cover' : `${zoom}%`,
     backgroundPosition: `${x}% ${y}%`,
   }
@@ -140,7 +140,7 @@ function DialogScene({ scene, onFinish }: { scene: Scene; onFinish: () => void }
           {/* 角色立繪區 */}
           <div className="relative overflow-hidden flex-shrink-0" style={{ height: `${charHeight}vh` }}>
             <img
-              src={current.character_image_url}
+              src={imageBlobUrls.get(current.character_image_url!) ?? current.character_image_url}
               alt={current.speaker}
               style={{
                 position: 'absolute',
@@ -299,7 +299,7 @@ function AnimationScene({ scene, onFinish }: { scene: Scene; onFinish: () => voi
       onClick={ended ? onFinish : undefined}
     >
       <video
-        src={config.video_url}
+        src={videoBlobUrls.get(config.video_url) ?? config.video_url}
         autoPlay={config.autoplay ?? true}
         loop={config.loop ?? false}
         playsInline

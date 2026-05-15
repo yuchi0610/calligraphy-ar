@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import ExperienceShell from '@/components/scene/ExperienceShell'
+import { imageBlobUrls, videoBlobUrls } from '@/lib/assetCache'
 import type { Scene, Ending, NewspaperConfig, DialogConfig, TextConfig, SignatureConfig, AnimationConfig } from '@/lib/types'
 
 const SHELL = 'fixed inset-0 overflow-hidden sm:relative sm:inset-auto sm:overflow-visible sm:max-w-[390px] sm:mx-auto sm:min-h-dvh'
@@ -36,28 +37,38 @@ function collectAssets(scenes: Scene[]): { images: string[]; videos: string[] } 
   return { images: images.filter(Boolean), videos: videos.filter(Boolean) }
 }
 
+async function toBlobUrl(url: string): Promise<string> {
+  const r = await fetch(url)
+  const blob = await r.blob()
+  return URL.createObjectURL(blob)
+}
+
 function preloadAll(images: string[], videos: string[], onProgress: (pct: number) => void): Promise<void> {
   const total = images.length + videos.length
   if (!total) { onProgress(100); return Promise.resolve() }
   let done = 0
   const tick = () => { done++; onProgress(Math.round((done / total) * 100)) }
 
-  // Images: fully decode before counting as done
-  const imagePromises = images.map(url => new Promise<void>(res => {
-    const img = new window.Image()
-    img.onload = () => { img.decode?.().catch(() => {}).finally(() => { tick(); res() }) }
-    img.onerror = () => { tick(); res() }
-    img.src = url
-  }))
+  // Images: fetch → blob URL → pre-decode into GPU memory
+  const imagePromises = images.map(async url => {
+    try {
+      const blobUrl = await toBlobUrl(url)
+      imageBlobUrls.set(url, blobUrl)
+      const img = new window.Image()
+      await new Promise<void>(res => { img.onload = img.onerror = () => res(); img.src = blobUrl })
+      await img.decode?.().catch(() => {})
+    } catch {}
+    tick()
+  })
 
-  // Videos: fetch() downloads completely into browser cache;
-  // the <video> element will then play instantly from cache with no black frame
-  const videoPromises = videos.map(url =>
-    fetch(url, { cache: 'force-cache' })
-      .then(r => r.blob())
-      .catch(() => {})
-      .finally(() => tick())
-  )
+  // Videos: fetch → blob URL; <video> plays from memory with zero buffering
+  const videoPromises = videos.map(async url => {
+    try {
+      const blobUrl = await toBlobUrl(url)
+      videoBlobUrls.set(url, blobUrl)
+    } catch {}
+    tick()
+  })
 
   return Promise.all([...imagePromises, ...videoPromises]).then(() => {})
 }

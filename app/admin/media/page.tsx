@@ -1,10 +1,16 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { createClient } from '@/lib/supabase/client'
 
 interface MediaFile {
   name: string; url: string; size: number; created_at: string; type: 'image' | 'video' | 'other'
+}
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+
+function publicUrl(name: string) {
+  return `${SUPABASE_URL}/storage/v1/object/public/media/${name}`
 }
 
 function fileType(name: string): MediaFile['type'] {
@@ -21,7 +27,6 @@ function formatSize(bytes: number) {
 }
 
 export default function MediaPage() {
-  const supabase = createClient()
   const [files, setFiles] = useState<MediaFile[]>([])
   const [loading, setLoading] = useState(true)
   const [listError, setListError] = useState('')
@@ -31,19 +36,25 @@ export default function MediaPage() {
   const inputRef = useRef<HTMLInputElement>(null)
 
   async function loadFiles() {
-    const { data, error } = await supabase.storage.from('media').list('', { sortBy: { column: 'created_at', order: 'desc' } })
-    if (error) {
-      setListError(`無法讀取媒體庫：${error.message}`)
+    setLoading(true)
+    setListError('')
+    const res = await fetch('/api/upload')
+    if (!res.ok) {
+      const { error } = await res.json()
+      setListError(error ?? '無法讀取媒體庫')
       setLoading(false)
       return
     }
-    if (!data) { setLoading(false); return }
-    const withUrls: MediaFile[] = data
-      .filter(f => f.name !== '.emptyFolderPlaceholder')
-      .map(f => {
-        const { data: urlData } = supabase.storage.from('media').getPublicUrl(f.name)
-        return { name: f.name, url: urlData.publicUrl, size: f.metadata?.size ?? 0, created_at: f.created_at ?? '', type: fileType(f.name) }
-      })
+    const { files: raw } = await res.json()
+    const withUrls: MediaFile[] = (raw ?? [])
+      .filter((f: { name: string }) => f.name !== '.emptyFolderPlaceholder')
+      .map((f: { name: string; metadata?: { size?: number }; created_at?: string }) => ({
+        name: f.name,
+        url: publicUrl(f.name),
+        size: f.metadata?.size ?? 0,
+        created_at: f.created_at ?? '',
+        type: fileType(f.name),
+      }))
     setFiles(withUrls)
     setLoading(false)
   }
@@ -57,31 +68,40 @@ export default function MediaPage() {
     setUploadError('')
     const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
     const filename = `${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from('media').upload(filename, file)
-    if (error) {
-      setUploadError(`上傳失敗：${error.message}`)
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('filename', filename)
+
+    const res = await fetch('/api/upload', { method: 'POST', body: formData })
+    const json = await res.json()
+
+    if (!res.ok) {
+      setUploadError(`上傳失敗：${json.error}`)
       setUploading(false)
       e.target.value = ''
       return
     }
-    // 上傳成功 — 直接把新檔案加進 state，不靠 list 重新查（避免 RLS list 政策問題）
-    const { data: urlData } = supabase.storage.from('media').getPublicUrl(filename)
+
     const newFile: MediaFile = {
       name: filename,
-      url: urlData.publicUrl,
+      url: json.url,
       size: file.size,
       created_at: new Date().toISOString(),
       type: fileType(filename),
     }
     setFiles(prev => [newFile, ...prev])
-    setLoading(false)
     setUploading(false)
     e.target.value = ''
   }
 
   async function handleDelete(name: string) {
     if (!confirm(`確定刪除 ${name}？`)) return
-    await supabase.storage.from('media').remove([name])
+    await fetch('/api/upload', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: name }),
+    })
     setFiles(files.filter(f => f.name !== name))
   }
 
@@ -110,14 +130,13 @@ export default function MediaPage() {
       {listError && (
         <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-3 rounded-xl space-y-1">
           <p className="font-medium">{listError}</p>
-          <p className="text-xs text-amber-600">請至 Supabase → Storage → media bucket → Policies，新增允許已登入用戶 SELECT（列表）的政策。上傳的檔案仍可正常使用。</p>
+          <p className="text-xs text-amber-600">請確認 .env.local 已設定 SUPABASE_SERVICE_ROLE_KEY。</p>
         </div>
       )}
 
       {uploadError && (
-        <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl space-y-1">
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl">
           <p>{uploadError}</p>
-          <p className="text-xs text-red-400">請確認 Supabase Storage 的 bucket「media」已建立，且 RLS 政策允許已登入用戶上傳（INSERT）。</p>
         </div>
       )}
 

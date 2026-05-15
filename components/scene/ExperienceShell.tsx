@@ -15,12 +15,17 @@ const SHELL = 'fixed inset-0 overflow-hidden sm:relative sm:inset-auto sm:overfl
 
 export default function ExperienceShell({ scenes, endings }: Props) {
   const [sceneIndex, setSceneIndex] = useState(0)
+  const [blackOut, setBlackOut] = useState(false)
 
   const currentScene = scenes[sceneIndex]
   const nextScene = scenes[sceneIndex + 1] ?? null
 
   function handleFinish() {
-    setSceneIndex(i => i + 1)
+    setBlackOut(true)
+    setTimeout(() => {
+      setSceneIndex(i => i + 1)
+      setBlackOut(false)
+    }, 60)
   }
 
   if (!currentScene) {
@@ -40,6 +45,7 @@ export default function ExperienceShell({ scenes, endings }: Props) {
         endings={endings}
         onFinish={handleFinish}
       />
+      {blackOut && <div className="absolute inset-0 bg-black z-50" />}
     </div>
   )
 }

@@ -155,11 +155,11 @@ export default function NewspaperFlip({ items, onFinish }: Props) {
         maxHeight={900}
         startPage={0}
         drawShadow={true}
-        flippingTime={1100}
+        flippingTime={600}
         usePortrait={true}
         startZIndex={10}
         autoSize={true}
-        maxShadowOpacity={0.6}
+        maxShadowOpacity={0.25}
         showCover={false}
         mobileScrollSupport={false}
         clickEventForward={false}

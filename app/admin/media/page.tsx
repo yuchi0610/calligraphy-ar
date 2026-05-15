@@ -69,15 +69,24 @@ export default function MediaPage() {
     const ext = file.name.split('.').pop()?.toLowerCase() ?? 'bin'
     const filename = `${Date.now()}.${ext}`
 
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('filename', filename)
+    // Step 1: get signed upload URL from server (no file data, tiny request)
+    const signRes = await fetch(`/api/upload?filename=${encodeURIComponent(filename)}`)
+    const signJson = await signRes.json()
+    if (!signRes.ok) {
+      setUploadError(`上傳失敗：${signJson.error}`)
+      setUploading(false)
+      e.target.value = ''
+      return
+    }
 
-    const res = await fetch('/api/upload', { method: 'POST', body: formData })
-    const json = await res.json()
-
-    if (!res.ok) {
-      setUploadError(`上傳失敗：${json.error}`)
+    // Step 2: upload file directly to Supabase (bypasses Next.js, no size limit)
+    const uploadRes = await fetch(signJson.signedUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': file.type },
+      body: file,
+    })
+    if (!uploadRes.ok) {
+      setUploadError(`上傳失敗：${uploadRes.statusText}`)
       setUploading(false)
       e.target.value = ''
       return
@@ -85,7 +94,7 @@ export default function MediaPage() {
 
     const newFile: MediaFile = {
       name: filename,
-      url: json.url,
+      url: publicUrl(filename),
       size: file.size,
       created_at: new Date().toISOString(),
       type: fileType(filename),

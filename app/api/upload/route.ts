@@ -8,21 +8,24 @@ function getSupabase() {
   return createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 }
 
-export async function POST(request: NextRequest) {
-  const formData = await request.formData()
-  const file = formData.get('file') as File | null
-  const filename = formData.get('filename') as string | null
-  if (!file || !filename) return NextResponse.json({ error: '缺少檔案或檔名' }, { status: 400 })
+// GET /api/upload?filename=xxx  → returns signed upload URL + token
+// GET /api/upload               → lists files
+export async function GET(request: NextRequest) {
+  const filename = request.nextUrl.searchParams.get('filename')
 
-  const arrayBuffer = await file.arrayBuffer()
-  const { error } = await getSupabase().storage
+  if (filename) {
+    const { data, error } = await getSupabase().storage
+      .from('media')
+      .createSignedUploadUrl(filename)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ signedUrl: data.signedUrl, token: data.token, path: data.path })
+  }
+
+  const { data, error } = await getSupabase().storage
     .from('media')
-    .upload(filename, arrayBuffer, { contentType: file.type, upsert: false })
-
+    .list('', { sortBy: { column: 'created_at', order: 'desc' } })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  const { data } = getSupabase().storage.from('media').getPublicUrl(filename)
-  return NextResponse.json({ url: data.publicUrl })
+  return NextResponse.json({ files: data ?? [] })
 }
 
 export async function DELETE(request: NextRequest) {
@@ -32,13 +35,4 @@ export async function DELETE(request: NextRequest) {
   const { error } = await getSupabase().storage.from('media').remove([filename])
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
-}
-
-export async function GET() {
-  const { data, error } = await getSupabase().storage
-    .from('media')
-    .list('', { sortBy: { column: 'created_at', order: 'desc' } })
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ files: data ?? [] })
 }

@@ -74,6 +74,7 @@ export default function NewspaperFlip({ items, onFinish }: Props) {
   const touchStartX = useRef(0)
   const touchStartY = useRef(0)
   const isFlippingRef = useRef(false)
+  const flashFiredRef = useRef(false)
   const autoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onFinishRef = useRef(onFinish)
   useEffect(() => { onFinishRef.current = onFinish }, [onFinish])
@@ -95,6 +96,8 @@ export default function NewspaperFlip({ items, onFinish }: Props) {
   const isLast = currentIdx >= flatPages.length - 1
 
   function triggerFlashFinish() {
+    if (flashFiredRef.current) return
+    flashFiredRef.current = true
     setFlashing(true)
     setTimeout(() => onFinishRef.current(), 700)
   }

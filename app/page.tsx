@@ -42,24 +42,22 @@ function preloadAll(images: string[], videos: string[], onProgress: (pct: number
   let done = 0
   const tick = () => { done++; onProgress(Math.round((done / total) * 100)) }
 
+  // Images: fully decode before counting as done
   const imagePromises = images.map(url => new Promise<void>(res => {
     const img = new window.Image()
-    img.onload = img.onerror = () => { tick(); res() }
+    img.onload = () => { img.decode?.().catch(() => {}).finally(() => { tick(); res() }) }
+    img.onerror = () => { tick(); res() }
     img.src = url
   }))
 
-  const videoPromises = videos.map(url => new Promise<void>(res => {
-    const vid = document.createElement('video')
-    vid.preload = 'auto'
-    vid.muted = true
-    vid.playsInline = true
-    const done = () => { tick(); res() }
-    vid.oncanplay = done
-    vid.onerror = done
-    // Fallback: don't block forever if canplay is slow
-    setTimeout(done, 8000)
-    vid.src = url
-  }))
+  // Videos: fetch() downloads completely into browser cache;
+  // the <video> element will then play instantly from cache with no black frame
+  const videoPromises = videos.map(url =>
+    fetch(url, { cache: 'force-cache' })
+      .then(r => r.blob())
+      .catch(() => {})
+      .finally(() => tick())
+  )
 
   return Promise.all([...imagePromises, ...videoPromises]).then(() => {})
 }

@@ -31,12 +31,15 @@ export interface DialogLine {
   text: string
   character_image_url?: string
   character_x?: number     // 0–100, horizontal center position, default 50
+  character_y?: number     // -30–60, vertical offset from bottom (%), default 0
   character_scale?: number // 50–200, percentage of area height, default 100
 }
 
 export interface DialogConfig {
   background_url?: string
-  background_position?: string // CSS background-position, default 'center'
+  background_x?: number    // 0–100, default 50
+  background_y?: number    // 0–100, default 50
+  background_zoom?: number // 80–200, default 100 (= cover)
   dialogs: DialogLine[]
   box_theme?: 'dark' | 'light'
   box_height?: number      // vh units, default 38
@@ -51,7 +54,9 @@ export interface DialogConfig {
 export interface TextConfig {
   text: string
   background_url?: string
-  background_position?: string // CSS background-position, default 'center'
+  background_x?: number    // 0–100, default 50
+  background_y?: number    // 0–100, default 50
+  background_zoom?: number // 80–200, default 100 (= cover)
   overlay_opacity?: number
   font_size?: number        // px, default 16
   text_color?: string       // default #ffffff

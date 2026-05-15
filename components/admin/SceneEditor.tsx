@@ -41,25 +41,31 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
   )
 }
 
-const BG_POSITIONS = [
-  ['top left', 'top center', 'top right'],
-  ['center left', 'center', 'center right'],
-  ['bottom left', 'bottom center', 'bottom right'],
-]
-
-function BgPositionPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const current = value || 'center'
+function ImageAdjust({ config, onChange }: { config: Record<string, unknown>; onChange: (c: Record<string, unknown>) => void }) {
+  const x    = (config.background_x    as number) ?? 50
+  const y    = (config.background_y    as number) ?? 50
+  const zoom = (config.background_zoom as number) ?? 100
   return (
-    <div className="flex items-center gap-3">
-      <div className="grid grid-cols-3 gap-1 bg-stone-100 p-1.5 rounded-lg">
-        {BG_POSITIONS.flat().map(pos => (
-          <button key={pos} type="button" onClick={() => onChange(pos)} title={pos}
-            className={`w-7 h-7 rounded flex items-center justify-center transition-colors ${current === pos ? 'bg-stone-800' : 'hover:bg-stone-200'}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${current === pos ? 'bg-white' : 'bg-stone-400'}`} />
-          </button>
-        ))}
-      </div>
-      <span className="text-xs text-stone-400">{current}</span>
+    <div className="border border-stone-100 rounded-xl p-3 bg-stone-50 space-y-2">
+      <p className="text-xs font-semibold text-stone-500 uppercase tracking-widest">圖片調整</p>
+      <Field label={`水平位置：${x}%`}>
+        <input type="range" min={0} max={100} step={1} value={x}
+          onChange={e => onChange({ ...config, background_x: Number(e.target.value) })}
+          className="w-full accent-stone-700" />
+        <div className="flex justify-between text-xs text-stone-400 mt-0.5"><span>靠左</span><span>靠右</span></div>
+      </Field>
+      <Field label={`垂直位置：${y}%`}>
+        <input type="range" min={0} max={100} step={1} value={y}
+          onChange={e => onChange({ ...config, background_y: Number(e.target.value) })}
+          className="w-full accent-stone-700" />
+        <div className="flex justify-between text-xs text-stone-400 mt-0.5"><span>靠上</span><span>靠下</span></div>
+      </Field>
+      <Field label={`縮放：${zoom}%`}>
+        <input type="range" min={80} max={200} step={5} value={zoom}
+          onChange={e => onChange({ ...config, background_zoom: Number(e.target.value) })}
+          className="w-full accent-stone-700" />
+        <div className="flex justify-between text-xs text-stone-400 mt-0.5"><span>縮小</span><span>放大</span></div>
+      </Field>
     </div>
   )
 }
@@ -137,9 +143,7 @@ function TextForm({ config, onChange, onPickMedia }: FormProps) {
         <MediaButton value={c.background_url ?? ''} onChange={v => onChange({ ...config, background_url: v })} onPickMedia={() => onPickMedia(v => onChange({ ...config, background_url: v }))} />
       </Field>
       {c.background_url && (
-        <Field label="圖片位置">
-          <BgPositionPicker value={c.background_position ?? 'center'} onChange={v => onChange({ ...config, background_position: v })} />
-        </Field>
+        <ImageAdjust config={config} onChange={onChange} />
       )}
       {c.background_url && (
         <Field label={`圖片暗化程度：${c.overlay_opacity ?? 50}%`}>
@@ -194,9 +198,7 @@ function DialogForm({ config, onChange, onPickMedia }: FormProps) {
         <MediaButton value={c.background_url ?? ''} onChange={v => onChange({ ...config, background_url: v })} onPickMedia={() => onPickMedia(v => onChange({ ...config, background_url: v }))} />
       </Field>
       {c.background_url && (
-        <Field label="圖片位置">
-          <BgPositionPicker value={c.background_position ?? 'center'} onChange={v => onChange({ ...config, background_position: v })} />
-        </Field>
+        <ImageAdjust config={config} onChange={onChange} />
       )}
 
       {/* 對話框樣式 */}
@@ -301,6 +303,13 @@ function DialogForm({ config, onChange, onPickMedia }: FormProps) {
                     onChange={e => updateDialog(i, 'character_scale', Number(e.target.value))}
                     className="w-full accent-stone-700" />
                   <div className="flex justify-between text-xs text-stone-400 mt-0.5"><span>縮小</span><span>原尺寸</span><span>放大</span></div>
+                </Field>
+                <Field label={`垂直位置：${d.character_y ?? 0}%`}>
+                  <input type="range" min={-30} max={60} step={1}
+                    value={(d.character_y as number) ?? 0}
+                    onChange={e => updateDialog(i, 'character_y', Number(e.target.value))}
+                    className="w-full accent-stone-700" />
+                  <div className="flex justify-between text-xs text-stone-400 mt-0.5"><span>下移</span><span>預設</span><span>上移</span></div>
                 </Field>
               </div>
             )}

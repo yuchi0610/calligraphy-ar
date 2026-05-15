@@ -4,6 +4,14 @@ import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import type { Scene, DialogConfig, AnimationConfig, NewspaperConfig, TextConfig, SignatureConfig, GameConfig } from '@/lib/types'
 
+function bgCss(url: string, x = 50, y = 50, zoom = 100): React.CSSProperties {
+  return {
+    backgroundImage: `url(${url})`,
+    backgroundSize: zoom === 100 ? 'cover' : `${zoom}%`,
+    backgroundPosition: `${x}% ${y}%`,
+  }
+}
+
 const OysterGame = dynamic(() => import('@/components/games/OysterGame'), { ssr: false })
 
 interface Props {
@@ -91,7 +99,7 @@ function MiniDialogPreview({ config }: { config: DialogConfig }) {
   const nameBadgeBg = boxTheme === 'dark' ? 'rgba(30,27,75,0.9)' : 'rgba(255,255,255,0.92)'
 
   const bgStyle = config.background_url
-    ? { backgroundImage: `url(${config.background_url})`, backgroundSize: 'cover', backgroundPosition: config.background_position ?? 'center' }
+    ? bgCss(config.background_url, config.background_x, config.background_y, config.background_zoom)
     : { background: 'linear-gradient(160deg,#1e1b4b 0%,#312e81 60%,#1e1b4b 100%)' }
 
   return (
@@ -104,7 +112,7 @@ function MiniDialogPreview({ config }: { config: DialogConfig }) {
               alt=""
               style={{
                 position: 'absolute',
-                bottom: 0,
+                bottom: `${current.character_y ?? 0}%`,
                 left: `${current.character_x ?? 50}%`,
                 transform: `translateX(-50%) scale(${(current.character_scale ?? 100) / 100})`,
                 transformOrigin: 'bottom center',
@@ -304,7 +312,7 @@ function MiniTextPreview({ config }: { config: TextConfig }) {
 
   const color = config.text_color ?? '#ffffff'
   const bgStyle = config.background_url
-    ? { backgroundImage: `url(${config.background_url})`, backgroundSize: 'cover', backgroundPosition: config.background_position ?? 'center' }
+    ? bgCss(config.background_url, config.background_x, config.background_y, config.background_zoom)
     : { background: '#1c1917' }
 
   return (
@@ -440,7 +448,7 @@ function PreviewContent({ scene, interactive }: { scene: Scene; interactive?: bo
       return (
         <div className="w-full h-full flex flex-col text-white"
           style={c.background_url
-            ? { backgroundImage: `url(${c.background_url})`, backgroundSize: 'cover', backgroundPosition: c.background_position ?? 'center' }
+            ? bgCss(c.background_url, c.background_x, c.background_y, c.background_zoom)
             : { background: 'linear-gradient(160deg,#1c1917,#292524)' }
           }
         >
@@ -488,7 +496,7 @@ function PreviewContent({ scene, interactive }: { scene: Scene; interactive?: bo
       const opacity = (c.overlay_opacity ?? 50) / 100
       const color = c.text_color ?? '#ffffff'
       const bgStyle = c.background_url
-        ? { backgroundImage: `url(${c.background_url})`, backgroundSize: 'cover', backgroundPosition: c.background_position ?? 'center' }
+        ? bgCss(c.background_url, c.background_x, c.background_y, c.background_zoom)
         : { background: '#1c1917' }
       return (
         <div style={{ width: SCREEN_W, height: PHONE_SCREEN_H, overflow: 'hidden', position: 'relative' }}>

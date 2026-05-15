@@ -3,6 +3,14 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import type { Scene, Ending, DialogConfig, AnimationConfig, NewspaperConfig, TextConfig, SignatureConfig, GameConfig } from '@/lib/types'
+
+function bgCss(url: string, x = 50, y = 50, zoom = 100): React.CSSProperties {
+  return {
+    backgroundImage: `url(${url})`,
+    backgroundSize: zoom === 100 ? 'cover' : `${zoom}%`,
+    backgroundPosition: `${x}% ${y}%`,
+  }
+}
 import OysterGame from '@/components/games/OysterGame'
 
 interface Props {
@@ -115,7 +123,7 @@ function DialogScene({ scene, onFinish }: { scene: Scene; onFinish: () => void }
       className="min-h-screen text-white flex flex-col cursor-pointer select-none relative overflow-hidden"
       style={{
         ...(config.background_url
-          ? { backgroundImage: `url(${config.background_url})`, backgroundSize: 'cover', backgroundPosition: config.background_position ?? 'center' }
+          ? bgCss(config.background_url, config.background_x, config.background_y, config.background_zoom)
           : { background: 'linear-gradient(160deg, #1e1b4b 0%, #312e81 60%, #1e1b4b 100%)' }),
       }}
       onClick={handleTap}
@@ -129,7 +137,7 @@ function DialogScene({ scene, onFinish }: { scene: Scene; onFinish: () => void }
               alt={current.speaker}
               style={{
                 position: 'absolute',
-                bottom: 0,
+                bottom: `${current.character_y ?? 0}%`,
                 left: `${current.character_x ?? 50}%`,
                 transform: `translateX(-50%) scale(${(current.character_scale ?? 100) / 100})`,
                 transformOrigin: 'bottom center',
@@ -247,7 +255,7 @@ function TextScene({ scene, onFinish }: { scene: Scene; onFinish: () => void }) 
     <div
       className="min-h-screen flex items-center justify-center cursor-pointer select-none relative overflow-hidden"
       style={config.background_url
-        ? { backgroundImage: `url(${config.background_url})`, backgroundSize: 'cover', backgroundPosition: config.background_position ?? 'center' }
+        ? bgCss(config.background_url, config.background_x, config.background_y, config.background_zoom)
         : { background: '#1c1917' }
       }
       onClick={handleTap}

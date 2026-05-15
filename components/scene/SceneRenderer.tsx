@@ -60,7 +60,7 @@ export default function SceneRenderer({ scene, nextScene, endings, onFinish }: P
     case 'game':      return <GameScene scene={scene} onFinish={(score) => { addScore(scene.id, score); goNext() }} />
     default:
       return (
-        <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6">
+        <div className="min-h-dvh bg-black text-white flex flex-col items-center justify-center p-6">
           <p className="text-zinc-500 text-sm mb-8">{scene.title}</p>
           <button onClick={goNext} className={btnCls}>繼 續 →</button>
         </div>
@@ -122,7 +122,7 @@ function DialogScene({ scene, onFinish }: { scene: Scene; onFinish: () => void }
 
   return (
     <div
-      className="min-h-screen text-white flex flex-col cursor-pointer select-none relative overflow-hidden"
+      className="min-h-dvh text-white flex flex-col cursor-pointer select-none relative overflow-hidden"
       style={{
         ...(config.background_url
           ? bgCss(config.background_url, config.background_x, config.background_y, config.background_zoom)
@@ -184,7 +184,7 @@ function DialogScene({ scene, onFinish }: { scene: Scene; onFinish: () => void }
         </>
       ) : (
         /* 無立繪：底部對話框 */
-        <div className="flex flex-col min-h-screen justify-end">
+        <div className="flex flex-col min-h-dvh justify-end">
           {dialogs.length > 1 && (
             <div className="flex justify-center gap-1.5 mb-3">
               {dialogs.map((_, i) => (
@@ -255,7 +255,7 @@ function TextScene({ scene, onFinish }: { scene: Scene; onFinish: () => void }) 
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center cursor-pointer select-none relative overflow-hidden"
+      className="min-h-dvh flex items-center justify-center cursor-pointer select-none relative overflow-hidden"
       style={config.background_url
         ? bgCss(config.background_url, config.background_x, config.background_y, config.background_zoom)
         : { background: '#1c1917' }
@@ -291,7 +291,7 @@ function AnimationScene({ scene, onFinish }: { scene: Scene; onFinish: () => voi
 
   if (!config.video_url) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-6">
+      <div className="min-h-dvh bg-black text-white flex flex-col items-center justify-center gap-6">
         <p className="text-zinc-500 text-sm">影片未設定</p>
         <button onClick={onFinish} className={btnCls}>繼 續 →</button>
       </div>
@@ -299,7 +299,7 @@ function AnimationScene({ scene, onFinish }: { scene: Scene; onFinish: () => voi
   }
 
   return (
-    <div className="min-h-screen bg-black flex flex-col items-center justify-center relative">
+    <div className="min-h-dvh bg-black flex flex-col items-center justify-center relative">
       <video
         ref={videoRef}
         src={config.video_url}
@@ -325,7 +325,7 @@ function NewspaperScene({ scene, onFinish }: { scene: Scene; onFinish: () => voi
 
   if (!items.length) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-6">
+      <div className="min-h-dvh bg-black text-white flex flex-col items-center justify-center gap-6">
         <p className="text-zinc-500 text-sm">尚未設定頁面</p>
         <button onClick={onFinish} className={btnCls}>繼 續 →</button>
       </div>
@@ -404,7 +404,7 @@ function SignatureScene({ scene, onFinish }: { scene: Scene; onFinish: () => voi
 
   return (
     <div
-      className="min-h-screen relative overflow-hidden select-none"
+      className="min-h-dvh relative overflow-hidden select-none"
       style={hasBg
         ? bgCss(config.background_url!, config.background_x, config.background_y, config.background_zoom)
         : { backgroundColor: '#f5f0e8' }
@@ -440,7 +440,7 @@ function GameScene({ scene, onFinish }: { scene: Scene; onFinish: (score: number
   }
 
   return (
-    <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-6 gap-6">
+    <div className="min-h-dvh bg-black text-white flex flex-col items-center justify-center p-6 gap-6">
       <h2 className="text-lg font-bold">{config.title || scene.title}</h2>
       {config.description && <p className="text-sm text-zinc-400 max-w-xs text-center">{config.description}</p>}
       <p className="text-xs text-zinc-600">遊戲元件 [{config.game_id}] 開發中</p>

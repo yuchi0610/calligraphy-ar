@@ -26,7 +26,7 @@ export default function ExperienceShell({ scenes, endings }: Props) {
 
   if (!currentScene) {
     return (
-      <div className="mx-auto max-w-[390px] min-h-screen bg-black text-white flex items-center justify-center">
+      <div className="mx-auto max-w-[390px] min-h-dvh bg-black text-white flex items-center justify-center">
         <p className="text-stone-500 text-sm">體驗已結束</p>
       </div>
     )

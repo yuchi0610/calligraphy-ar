@@ -122,7 +122,7 @@ export default function NewspaperFlip({ items, onFinish }: Props) {
 
   if (!flatPages.length) {
     return (
-      <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center gap-6">
+      <div className="min-h-dvh bg-black text-white flex flex-col items-center justify-center gap-6">
         <p className="text-zinc-500 text-sm">尚未設定頁面</p>
         <button onClick={onFinish} className="border border-white/30 text-white text-sm tracking-widest px-10 py-4">繼 續 →</button>
       </div>
@@ -131,7 +131,7 @@ export default function NewspaperFlip({ items, onFinish }: Props) {
 
   return (
     <div
-      className="min-h-screen bg-zinc-900 flex flex-col items-center justify-center select-none overflow-hidden"
+      className="min-h-dvh bg-zinc-900 flex flex-col items-center justify-center select-none overflow-hidden"
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >

@@ -24,8 +24,7 @@ export default function LoginPage() {
       setError('密碼錯誤')
       setLoading(false)
     } else {
-      router.push('/admin/scenes')
-      router.refresh()
+      window.location.href = '/admin/scenes'
     }
   }
 
